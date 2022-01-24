@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { historyExplorerController, IServerSpec, osAPI, smAPI } from './extension';
+import { historyBrowserController, IServerSpec, osAPI, smAPI } from './extension';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
 
@@ -13,35 +13,35 @@ const resultMap = new WeakMap<vscode.TestItem, IResult>();
 export async function setupHistoryExplorerController() {
     logger.info('setupHistoryExplorerController invoked');
 
-    historyExplorerController.resolveHandler = async (item) => {
+    historyBrowserController.resolveHandler = async (item) => {
         if (item) {
             const idParts = item.id.split(':');
             if (idParts.length === 2) {
-                await addTestInstances(item, historyExplorerController);
+                await addTestInstances(item, historyBrowserController);
             }
             else if (idParts.length === 3) {
-                await addTestSuites(item, historyExplorerController);
+                await addTestSuites(item, historyBrowserController);
             }
             else if (idParts.length === 4) {
-                await addTestCases(item, historyExplorerController);
+                await addTestCases(item, historyBrowserController);
             }
             else if (idParts.length === 5) {
-                await addTestMethods(item, historyExplorerController);
+                await addTestMethods(item, historyBrowserController);
             }
             else if (idParts.length === 6) {
-                await addTestAsserts(item, historyExplorerController);
+                await addTestAsserts(item, historyBrowserController);
             }
         }
         else {
             // Root items
-            replaceRootItems(historyExplorerController);
+            replaceRootItems(historyBrowserController);
         }
     }
-    historyExplorerController.items.replace([historyExplorerController.createTestItem('-', 'loading...')]);
+    historyBrowserController.items.replace([historyBrowserController.createTestItem('-', 'loading...')]);
 
 }
 
-async function serverSpec(item: vscode.TestItem): Promise<IServerSpec | undefined> {
+export async function serverSpec(item: vscode.TestItem): Promise<IServerSpec | undefined> {
     return await smAPI.getServerSpec(item.id.split(':')[0]);
 }
 

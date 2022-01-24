@@ -2,11 +2,13 @@
 
 import * as vscode from "vscode";
 import { setupHistoryExplorerController } from "./historyExplorer";
-import { setupWorkspaceTestsController } from "./workspaceTests";
+import { setupServerTestsController } from "./serverTests";
+import { setupLocalTestsController } from "./localTests";
 
 export const extensionId = "intersystems-community.testingmanager";
-export let historyExplorerController: vscode.TestController;
-export let testController: vscode.TestController;
+export let localTestController: vscode.TestController;
+export let loadedTestController: vscode.TestController;
+export let historyBrowserController: vscode.TestController;
 export let osAPI;
 export let smAPI;
 
@@ -71,12 +73,16 @@ export async function activate(context: vscode.ExtensionContext) {
     // TODO notify user if either of these returned undefined (extensionDependencies setting should prevent that, but better to be safe)
 
     // Other parts of this extension will use the test controllers
-    testController = vscode.tests.createTestController(`${extensionId}-Controller`, 'Workspace Tests');
-    context.subscriptions.push(testController);
-    await setupWorkspaceTestsController();
+    localTestController = vscode.tests.createTestController(`${extensionId}-Local`, 'LOCAL TESTS');
+    context.subscriptions.push(localTestController);
+    await setupLocalTestsController();
 
-    historyExplorerController = vscode.tests.createTestController(`${extensionId}-HistoryExplorer`, 'History Explorer');
-    context.subscriptions.push(historyExplorerController);
+    loadedTestController = vscode.tests.createTestController(`${extensionId}-Loaded`, 'SERVER TESTS');
+    context.subscriptions.push(loadedTestController);
+    await setupServerTestsController();
+
+    historyBrowserController = vscode.tests.createTestController(`${extensionId}-History`, 'TESTING HISTORY');
+    context.subscriptions.push(historyBrowserController);
     await setupHistoryExplorerController();
 
     // Register the commands

@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import { testController } from './extension';
-import { replaceRootItems } from './historyExplorer';
+import { localTestController, osAPI } from './extension';
 import logger from './logger';
 
 const isResolvedMap = new WeakMap<vscode.TestItem, boolean>();
@@ -12,45 +11,45 @@ function resolveItemChildren(item: vscode.TestItem) {
         const depth = item.id.split('.').length;
         const isLeaf = depth > 3;
         const pkgSuffix = 'ABC'.charAt(depth -1);
-        for (let index = 1; index < 6; index++) {
-            const child = testController.createTestItem(`${item.id}.${index}`, `${isLeaf ? 'Class' : 'Pkg' + pkgSuffix}${index}`);
+        for (let index = 1; index < (depth + 1); index++) {
+            const child = localTestController.createTestItem(`${item.id}.${index}`, `${isLeaf ? 'Class' : 'Pkg' + pkgSuffix}${index}`);
             child.canResolveChildren = !isLeaf;
             item.children.add(child);
         }
     }
     else {
         // Root items
-        replaceRootItems(testController);
+        replaceLocalRootItems(localTestController);
     }
 }
 
-export async function setupWorkspaceTestsController() {
-    logger.info('setupWorkspaceTestsController invoked');
+export async function setupLocalTestsController() {
+    logger.info('setupLocalTestsController invoked');
 
-    testController.createRunProfile('Run Tests', vscode.TestRunProfileKind.Run, runTestsHandler, true);
-    testController.createRunProfile('Debug Tests', vscode.TestRunProfileKind.Debug, runTestsHandler);
+    localTestController.createRunProfile('Run Tests', vscode.TestRunProfileKind.Run, runTestsHandler, true);
+    localTestController.createRunProfile('Debug Tests', vscode.TestRunProfileKind.Debug, runTestsHandler);
     //testController.createRunProfile('Test Coverage', vscode.TestRunProfileKind.Coverage, runTestsHandler);
 
-    testController.resolveHandler = resolveItemChildren;
-    testController.items.replace([testController.createTestItem('-', 'loading...')]);
+    localTestController.resolveHandler = resolveItemChildren;
+    localTestController.items.replace([localTestController.createTestItem('-', 'loading...')]);
 }
 
 export async function runTestsHandler(request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
     logger.info('runTestsHandler invoked');
 
-    const run = testController.createTestRun(
+    const run = localTestController.createTestRun(
         request,
         'Fake Test Results',
         true
     );
-    run.appendOutput('Fake output from fake run of fake workspace tests.\r\nTODO');
+    run.appendOutput('Fake output from fake run of fake local tests.\r\nTODO');
     const queue: vscode.TestItem[] = [];
 
     // Loop through all included tests, or all known tests, and add them to our queue
     if (request.include) {
         request.include.forEach(test => queue.push(test));
     } else {
-        testController.items.forEach(test => queue.push(test));
+        localTestController.items.forEach(test => queue.push(test));
     }
 
     // For every test that was queued, try to run it. Call run.passed() or run.failed().
@@ -101,4 +100,27 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
 
     await new Promise(resolve => setTimeout(resolve, 5000));
     run.end();
+}
+
+
+/* Replace root items with one item for each file-type workspace root for which a named server can be identified
+*/
+function replaceLocalRootItems(controller: vscode.TestController) {
+    const rootItems: vscode.TestItem[] = [];
+    const rootMap = new Map<string, vscode.TestItem>();
+    vscode.workspace.workspaceFolders?.forEach(folder => {
+        if (folder.uri.scheme === 'file') {
+            const server = osAPI.serverForUri(folder.uri);
+            if (server?.serverName && server.namespace) {
+                const key = folder.index.toString();
+                if (!rootMap.has(key)) {
+                    const item = controller.createTestItem(key, folder.name);
+                    item.canResolveChildren = true;
+                    rootMap.set(key, item);
+                }
+            }
+        }
+    });
+    rootMap.forEach(item => rootItems.push(item));
+    controller.items.replace(rootItems);
 }

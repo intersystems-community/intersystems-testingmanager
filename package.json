@@ -77,6 +77,20 @@
     ],
     "menus": {
       "commandPalette": [
+      ],
+      "view/title": [
+        {
+          "command": "intersystems-community.servermanager.addServer",
+          "when": "view == workbench.view.testing",
+          "group": "navigation"
+        }
+      ],
+      "testing/item/context": [
+        {
+          "command": "intersystems-community.servermanager.addServer",
+          "when": "controllerId == 'intersystems-community.testingmanager-History' && testId =~ /:%SYS$/",
+          "group": "inline"
+        }
       ]
     }
   }
