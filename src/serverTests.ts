@@ -23,51 +23,37 @@ async function resolveItemChildren(item: vscode.TestItem) {
                 );
                 if (response) {
                     response?.data?.result?.content?.forEach(async element => {
-                        const fullClassName = element.Name;
+                        const fullClassName: string = element.Name;
 
-                        const response = await makeRESTRequest(
-                            "POST",
-                            spec,
-                            { apiVersion: 1, namespace, path: "/action/query" },
-                            { query: `SELECT Name FROM %Dictionary.MethodDefinition WHERE parent='${fullClassName}' AND Name %STARTSWITH 'Test'` },
-                        );
-                        if (response?.data?.result?.content?.length > 0) {
                             const tiClass = loadedTestController.createTestItem(
                                 `${item.id}:${fullClassName}`,
-                                fullClassName
+                                fullClassName,
+                                vscode.Uri.from({
+                                    scheme: "isfs-readonly",
+                                    authority: item.id.toLowerCase(),
+                                    path: "/" + fullClassName.replace(/\./, "/") + ".cls"
+                                })
                             );
-                            //tiClass.description = `Class ${fullClassName}`;
-                            response?.data?.result?.content?.forEach(element => {
-                                const testMethodSuffix = element.Name.slice(4);
-                                const tiMethod = loadedTestController.createTestItem(
-                                    `${item.id}:${element.Name}`,
-                                    testMethodSuffix
-                                );
-                                tiClass.children.add(tiMethod);
-                            });
-                            item.children.add(tiClass);
-                        }
-                    });
-                }
-            }
-            else if (parts.length === 3) {
-                // Find all Test* methods in a class
-                const fullClassName = parts[2];
-                const response = await makeRESTRequest(
-                    "POST",
-                    spec,
-                    { apiVersion: 1, namespace, path: "/action/query" },
-                    { query: `SELECT Name FROM %Dictionary.MethodDefinition WHERE parent='${fullClassName}' AND Name %STARTSWITH 'Test'` },
-                );
-                if (response) {
-                    response?.data?.result?.content?.forEach(element => {
-                        const testMethodSuffix = element.Name.slice(4);
-                        const child = loadedTestController.createTestItem(
-                            `${item.id}:${element.Name}`,
-                            testMethodSuffix
-                        );
-                        child.canResolveChildren = false;
-                        item.children.add(child);
+                            const symbols = await vscode.commands.executeCommand<vscode.ProviderResult<vscode.SymbolInformation[] | vscode.DocumentSymbol[]>>('vscode.executeDocumentSymbolProvider', tiClass.uri);
+                            if (symbols?.length === 1 && symbols[0].kind === vscode.SymbolKind.Class) {
+                                const symbol = symbols[0];
+                                tiClass.range = (symbol as vscode.DocumentSymbol).range || (symbol as vscode.SymbolInformation).location.range;
+                                (symbol as vscode.DocumentSymbol).children.forEach(childSymbol => {
+                                    if (childSymbol.kind === vscode.SymbolKind.Method && childSymbol.name.startsWith("Test")) {
+                                        const testMethodName = childSymbol.name;
+                                        const tiMethod = loadedTestController.createTestItem(
+                                            `${item.id}:${testMethodName}`,
+                                            testMethodName.slice(4),
+                                            tiClass.uri
+                                        );
+                                        tiMethod.range = childSymbol.range;
+                                        tiClass.children.add(tiMethod);
+                                    }
+                                });
+                            }
+                            if (tiClass.children.size > 0) {
+                                item.children.add(tiClass);
+                            }
                     });
                 }
             }
@@ -77,15 +63,17 @@ async function resolveItemChildren(item: vscode.TestItem) {
     else {
         // Root items
         replaceRootItems(loadedTestController);
-    }
+
+        if (loadedTestController.items.size > 0) {
+            loadedTestController.createRunProfile('Run Server Tests', vscode.TestRunProfileKind.Run, runTestsHandler, true);
+            loadedTestController.createRunProfile('Debug Server Tests', vscode.TestRunProfileKind.Debug, runTestsHandler);
+            //loadedTestController.createRunProfile('Test Coverage', vscode.TestRunProfileKind.Coverage, runTestsHandler);
+        }
+        }
 }
 
 export async function setupServerTestsController() {
     logger.info('setupServerTestsController invoked');
-
-    loadedTestController.createRunProfile('Run Tests', vscode.TestRunProfileKind.Run, runTestsHandler, true);
-    loadedTestController.createRunProfile('Debug Tests', vscode.TestRunProfileKind.Debug, runTestsHandler);
-    //testController.createRunProfile('Test Coverage', vscode.TestRunProfileKind.Coverage, runTestsHandler);
 
     loadedTestController.resolveHandler = resolveItemChildren;
     loadedTestController.items.replace([loadedTestController.createTestItem('-', 'loading...')]);
@@ -127,7 +115,10 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
 
         // Return result for leaf items
         if (test.children.size === 0) {
-            const suffix = test.id.split('.').pop()
+            let suffix = test.id.split('.').pop();
+            if (!suffix?.match(/^\d+$/)) {
+                suffix = (Math.random() * 5 + 1).toPrecision(1);
+            }
             switch (suffix) {
                 case '1':
                     run.skipped(test);

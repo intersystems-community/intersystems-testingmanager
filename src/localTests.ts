@@ -9,10 +9,10 @@ function resolveItemChildren(item: vscode.TestItem) {
         isResolvedMap.set(item, true);
         // Simulation of nested tests
         const depth = item.id.split('.').length;
-        const isLeaf = depth > 3;
-        const pkgSuffix = 'ABC'.charAt(depth -1);
+        const isLeaf = depth > 4;
+        const pkgSuffix = 'ABCD'.charAt(depth -1);
         for (let index = 1; index < (depth + 1); index++) {
-            const child = localTestController.createTestItem(`${item.id}.${index}`, `${isLeaf ? 'Class' : 'Pkg' + pkgSuffix}${index}`);
+            const child = localTestController.createTestItem(`${item.id}.${index}`, `${isLeaf ? 'MockClass' : (depth === 1 ? 'Mock' : '') + 'Pkg' + pkgSuffix}${index}`);
             child.canResolveChildren = !isLeaf;
             item.children.add(child);
         }
@@ -20,15 +20,16 @@ function resolveItemChildren(item: vscode.TestItem) {
     else {
         // Root items
         replaceLocalRootItems(localTestController);
-    }
+        if (localTestController.items.size > 0) {
+            localTestController.createRunProfile('Run Local Tests', vscode.TestRunProfileKind.Run, runTestsHandler, true);
+            localTestController.createRunProfile('Debug Local Tests', vscode.TestRunProfileKind.Debug, runTestsHandler);
+            //localTestController.createRunProfile('Test Coverage', vscode.TestRunProfileKind.Coverage, runTestsHandler);
+        }
+        }
 }
 
 export async function setupLocalTestsController() {
     logger.info('setupLocalTestsController invoked');
-
-    localTestController.createRunProfile('Run Tests', vscode.TestRunProfileKind.Run, runTestsHandler, true);
-    localTestController.createRunProfile('Debug Tests', vscode.TestRunProfileKind.Debug, runTestsHandler);
-    //testController.createRunProfile('Test Coverage', vscode.TestRunProfileKind.Coverage, runTestsHandler);
 
     localTestController.resolveHandler = resolveItemChildren;
     localTestController.items.replace([localTestController.createTestItem('-', 'loading...')]);
@@ -77,7 +78,7 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
                     break;
 
                 case '2':
-                    run.failed(test, new vscode.TestMessage('fake failure'), 12300);                           
+                    run.failed(test, new vscode.TestMessage('fake failure'), 1230);                           
                     break;
             
                 case '3':
@@ -89,7 +90,7 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
                     break;
                     
                 default:
-                    run.passed(test, 45600);
+                    run.passed(test, 4560);
                     break;
             }
         }
