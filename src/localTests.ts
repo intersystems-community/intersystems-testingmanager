@@ -4,17 +4,62 @@ import logger from './logger';
 
 const isResolvedMap = new WeakMap<vscode.TestItem, boolean>();
 
-function resolveItemChildren(item: vscode.TestItem) {
+async function resolveItemChildren(item: vscode.TestItem) {
     if (item) {
         isResolvedMap.set(item, true);
-        // Simulation of nested tests
-        const depth = item.id.split('.').length;
-        const isLeaf = depth > 4;
-        const pkgSuffix = 'ABCD'.charAt(depth -1);
-        for (let index = 1; index < (depth + 1); index++) {
-            const child = localTestController.createTestItem(`${item.id}.${index}`, `${isLeaf ? 'MockClass' : (depth === 1 ? 'Mock' : '') + 'Pkg' + pkgSuffix}${index}`);
-            child.canResolveChildren = !isLeaf;
-            item.children.add(child);
+        const itemUri = item.uri;
+        if (itemUri) {
+            item.busy = true;
+            try {
+                const contents = await vscode.workspace.fs.readDirectory(itemUri);
+                contents.filter((entry) => entry[1] === vscode.FileType.Directory).forEach((entry) => {
+                    const name = entry[0];
+                    const child = localTestController.createTestItem(`${item.id}.${name}`, name, itemUri.with({path: `${itemUri.path}/${name}`}));
+                    child.canResolveChildren = true;
+                    item.children.add(child);
+                });
+                contents.filter((entry) => entry[1] === vscode.FileType.File).forEach((entry) => {
+                    const name = entry[0];
+                    if (name.endsWith('.cls')) {
+                        const child = localTestController.createTestItem(`${item.id}.${name}`, name, itemUri.with({path: `${itemUri.path}/${name}`}));
+                        child.canResolveChildren = true;
+                        item.children.add(child);
+                    }
+                });
+            } catch (error) {
+                if (error.code !== vscode.FileSystemError.FileNotADirectory().code) {
+                    throw error;
+                }
+                if (itemUri.path.endsWith('.cls')) {
+                    try {
+                        const file = await vscode.workspace.fs.readFile(itemUri);
+                        const lines = file.toString().split('\n');
+                        for (let index = 0; index < lines.length; index++) {
+                            const lineText = lines[index];
+                            if (lineText.startsWith('Class ')) {
+                                if (!lineText.includes('%UnitTest.TestCase')) {
+                                    break;
+                                }
+                                item.range = new vscode.Range(new vscode.Position(index, 0), new vscode.Position(index + 1, 0))
+                            }
+                            const match = lineText.match(/^Method Test(.+)\(/);
+                            if (match) {
+                                const testName = match[1];
+                                // const child = localTestController.createTestItem(`${item.id}.${testName}`, testName, itemUri.with({fragment: `L${index + 1}`}));
+                                const child = localTestController.createTestItem(`${item.id}.${testName}`, testName, itemUri);
+                                child.range = new vscode.Range(new vscode.Position(index, 0), new vscode.Position(index + 1, 0))
+                                child.canResolveChildren = false;
+                                item.children.add(child);
+                            }
+                        }
+                        console.log(file);
+                    } catch (error) {
+                        item.error = `${error.name ?? 'Unknown error'} - ${error.message ?? '(no message)'}`;
+                    }
+                }
+            } finally {
+                item.busy = false;
+            }
         }
     }
     else {
@@ -25,7 +70,7 @@ function resolveItemChildren(item: vscode.TestItem) {
             localTestController.createRunProfile('Debug Local Tests', vscode.TestRunProfileKind.Debug, runTestsHandler);
             //localTestController.createRunProfile('Test Coverage', vscode.TestRunProfileKind.Coverage, runTestsHandler);
         }
-        }
+    }
 }
 
 export async function setupLocalTestsController() {
@@ -71,8 +116,8 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
 
         // Return result for leaf items
         if (test.children.size === 0) {
-            const suffix = test.id.split('.').pop()
-            switch (suffix) {
+            const outcome = (Math.random() * 5 + 0.5).toFixed(0);
+            switch (outcome) {
                 case '1':
                     run.skipped(test);
                     break;
@@ -115,7 +160,9 @@ function replaceLocalRootItems(controller: vscode.TestController) {
             if (server?.serverName && server.namespace) {
                 const key = folder.index.toString();
                 if (!rootMap.has(key)) {
-                    const item = controller.createTestItem(key, folder.name);
+                    const relativeTestRoot = 'internal/testing/unit_tests';
+                    const item = controller.createTestItem(key, folder.name, folder.uri.with({path: `${folder.uri.path}/${relativeTestRoot}`}));
+                    item.description = relativeTestRoot;
                     item.canResolveChildren = true;
                     rootMap.set(key, item);
                 }
