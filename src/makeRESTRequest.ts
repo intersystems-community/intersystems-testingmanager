@@ -145,7 +145,7 @@ export async function resolveCredentials(serverSpec: IServerSpec) {
             );
         }
         if (session) {
-            serverSpec.username = session.scopes[1] === "UnknownUser" ? "" : session.scopes[1];
+            serverSpec.username = session.scopes[1] === "unknownuser" ? "" : session.scopes[1];
             serverSpec.password = session.accessToken;
         }
     }

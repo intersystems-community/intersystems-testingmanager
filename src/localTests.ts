@@ -88,7 +88,7 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
         'Fake Test Results',
         true
     );
-    run.appendOutput('Fake output from fake run of fake local tests.\r\nTODO');
+    run.appendOutput('Fake output from fake run of local tests.\r\nTODO');
     const queue: vscode.TestItem[] = [];
 
     // Loop through all included tests, or all known tests, and add them to our queue
@@ -123,9 +123,9 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
                     break;
 
                 case '2':
-                    run.failed(test, new vscode.TestMessage('fake failure'), 1230);                           
+                    run.failed(test, new vscode.TestMessage('fake failure'), 1230);
                     break;
-            
+
                 case '3':
                     run.errored(test, new vscode.TestMessage('fake error'), 900);
                     break;
@@ -133,7 +133,7 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
                 case '4':
                     run.enqueued(test);
                     break;
-                    
+
                 default:
                     run.passed(test, 4560);
                     break;
@@ -160,7 +160,7 @@ function replaceLocalRootItems(controller: vscode.TestController) {
             if (server?.serverName && server.namespace) {
                 const key = folder.index.toString();
                 if (!rootMap.has(key)) {
-                    const relativeTestRoot = 'internal/testing/unit_tests';
+                    const relativeTestRoot = vscode.workspace.getConfiguration('intersystems.testingManager', folder.uri).get<string>('relativeTestRoot') || 'internal/testing/unit_tests';
                     const item = controller.createTestItem(key, folder.name, folder.uri.with({path: `${folder.uri.path}/${relativeTestRoot}`}));
                     item.description = relativeTestRoot;
                     item.canResolveChildren = true;

@@ -9,8 +9,8 @@ export const extensionId = "intersystems-community.testingmanager";
 export let localTestController: vscode.TestController;
 export let loadedTestController: vscode.TestController;
 export let historyBrowserController: vscode.TestController;
-export let osAPI;
-export let smAPI;
+export let osAPI: any;
+export let smAPI: any;
 
 export interface IWebServerSpec {
     scheme?: string;
@@ -43,7 +43,7 @@ async function getServerManagerAPI(): Promise<any> {
       await targetExtension.activate();
     }
     const api = targetExtension.exports;
-  
+
     if (!api) {
       return undefined;
     }
@@ -59,7 +59,7 @@ async function getObjectScriptAPI(): Promise<any> {
       await targetExtension.activate();
     }
     const api = targetExtension.exports;
-  
+
     if (!api) {
       return undefined;
     }
@@ -73,22 +73,22 @@ export async function activate(context: vscode.ExtensionContext) {
     // TODO notify user if either of these returned undefined (extensionDependencies setting should prevent that, but better to be safe)
 
     // Other parts of this extension will use the test controllers
-    localTestController = vscode.tests.createTestController(`${extensionId}-Local`, 'LOCAL TESTS');
+    localTestController = vscode.tests.createTestController(`${extensionId}-Local`, '$(folder-library) Local Tests');
     context.subscriptions.push(localTestController);
     await setupLocalTestsController();
 
-    loadedTestController = vscode.tests.createTestController(`${extensionId}-Loaded`, 'SERVER TESTS');
+    loadedTestController = vscode.tests.createTestController(`${extensionId}-Loaded`, '$(server-environment) Server Tests');
     context.subscriptions.push(loadedTestController);
     await setupServerTestsController();
 
-    historyBrowserController = vscode.tests.createTestController(`${extensionId}-History`, 'TESTING HISTORY');
+    historyBrowserController = vscode.tests.createTestController(`${extensionId}-History`, '$(history) Testing History');
     context.subscriptions.push(historyBrowserController);
     await setupHistoryExplorerController();
 
     // Register the commands
     context.subscriptions.push(
-        //DUMMY example
-        vscode.commands.registerCommand(`${extensionId}.templateCommand`, () => {}),
+        //DUMMY example (remember to add entries to `contributes.commands` in package.json)
+        //vscode.commands.registerCommand(`${extensionId}.templateCommand`, () => {}),
     );
 
     // Listen for relevant configuration changes
