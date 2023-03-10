@@ -1,7 +1,7 @@
 {
   "name": "testingmanager",
   "displayName": "InterSystems Testing Manager",
-  "version": "0.0.1",
+  "version": "0.0.2-SNAPSHOT",
   "preview": true,
   "publisher": "intersystems-community",
   "description": "Manage testing on InterSystems servers.",
@@ -15,8 +15,7 @@
     "objectscript"
   ],
   "engines": {
-    "vscode": "^1.63.0",
-    "node": "^10.2.0"
+    "vscode": "^1.76.0"
   },
   "icon": "images/logo.png",
   "categories": [
@@ -47,21 +46,23 @@
     "lint-fix": "tslint --project tsconfig.json -t verbose --fix"
   },
   "dependencies": {
-    "axios": "^0.21.2",
+    "axios": "^0.24",
     "axios-cookiejar-support": "^1.0.1",
     "node-cmd": "^4.0.0",
     "tough-cookie": "^4.0.0"
   },
   "devDependencies": {
+    "@intersystems-community/intersystems-servermanager": "latest",
     "@types/glob": "^7.1.1",
-    "@types/mocha": "^8.0.4",
+    "@types/mocha": "^9.0.0",
     "@types/node": "^8.10.60",
+    "@types/vscode": "^1.76.0",
     "glob": "^7.1.6",
-    "mocha": "^8.3.2",
-    "ts-loader": "^6.2.2",
+    "mocha": "^9.2.2",
+    "ts-loader": "^9.4.2",
     "tslint": "^5.20.1",
-    "typescript": "^3.8.3",
-    "vsce": "^2.5.1",
+    "typescript": "^4.4.3",
+    "vsce": "^2.15.0",
     "vscode-test": "^1.3.0"
   },
   "main": "./out/extension",
@@ -71,8 +72,16 @@
     "onLanguage:objectscript-class"
   ],
   "contributes": {
-    "configuration": [
-    ],
+    "configuration": {
+      "title": "InterSystems Testing Manager",
+      "properties": {
+        "intersystems.testingManager.relativeTestRoot": {
+          "markdownDescription": "Relative path to where client-side test classes are stored.",
+          "type": "string",
+          "scope": "resource"
+        }
+      }
+    },
     "commands": [
     ],
     "menus": {
