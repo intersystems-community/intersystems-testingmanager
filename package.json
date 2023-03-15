@@ -69,7 +69,8 @@
   "activationEvents": [
     "onFileSystem:isfs",
     "onFileSystem:isfs-readonly",
-    "onLanguage:objectscript-class"
+    "onLanguage:objectscript-class",
+    "workspaceContains:**/*.cls"
   ],
   "contributes": {
     "configuration": {

@@ -116,6 +116,7 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
 
         // Return result for leaf items
         if (test.children.size === 0) {
+            //TODO actually run the test
             const outcome = (Math.random() * 5 + 0.5).toFixed(0);
             switch (outcome) {
                 case '1':
@@ -123,10 +124,12 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
                     break;
 
                 case '2':
+                    // TODO
                     run.failed(test, new vscode.TestMessage('fake failure'), 1230);
                     break;
 
                 case '3':
+                    // TODO
                     run.errored(test, new vscode.TestMessage('fake error'), 900);
                     break;
 
@@ -135,6 +138,7 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
                     break;
 
                 default:
+                    // TODO
                     run.passed(test, 4560);
                     break;
             }

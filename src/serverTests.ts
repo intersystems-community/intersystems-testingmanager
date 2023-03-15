@@ -31,7 +31,7 @@ async function resolveItemChildren(item: vscode.TestItem) {
                                 vscode.Uri.from({
                                     scheme: "isfs-readonly",
                                     authority: item.id.toLowerCase(),
-                                    path: "/" + fullClassName.replace(/\./, "/") + ".cls"
+                                    path: "/" + fullClassName.replace(/\./g, "/") + ".cls"
                                 })
                             );
                             const symbols = await vscode.commands.executeCommand<vscode.ProviderResult<vscode.SymbolInformation[] | vscode.DocumentSymbol[]>>('vscode.executeDocumentSymbolProvider', tiClass.uri);
@@ -42,7 +42,7 @@ async function resolveItemChildren(item: vscode.TestItem) {
                                     if (childSymbol.kind === vscode.SymbolKind.Method && childSymbol.name.startsWith("Test")) {
                                         const testMethodName = childSymbol.name;
                                         const tiMethod = loadedTestController.createTestItem(
-                                            `${item.id}:${testMethodName}`,
+                                            `${tiClass.id}:${testMethodName}`,
                                             testMethodName.slice(4),
                                             tiClass.uri
                                         );
@@ -88,6 +88,7 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
         true
     );
     run.appendOutput('Fake output from fake run of fake server tests.\r\nTODO');
+    const mapAuthorities = new Map<string, Map<string, vscode.Uri>>();
     const queue: vscode.TestItem[] = [];
 
     // Loop through all included tests, or all known tests, and add them to our queue
@@ -113,39 +114,48 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
             resolveItemChildren(test);
         }
 
-        // Return result for leaf items
-        if (test.children.size === 0) {
-            let suffix = test.id.split('.').pop();
-            if (!suffix?.match(/^\d+$/)) {
-                suffix = (Math.random() * 5 + 1).toPrecision(1);
-            }
-            switch (suffix) {
-                case '1':
-                    run.skipped(test);
-                    break;
-
-                case '2':
-                    run.failed(test, new vscode.TestMessage('fake failure'), 12300);                           
-                    break;
-            
-                case '3':
-                    run.errored(test, new vscode.TestMessage('fake error'), 900);
-                    break;
-
-                case '4':
-                    run.enqueued(test);
-                    break;
-                    
-                default:
-                    run.passed(test, 45600);
-                    break;
-            }
+        // Mark each leaf item as enqueued and note its .cls file for copying
+        if (test.children.size === 0 && test.uri) {
+            run.enqueued(test);
+            const authority = test.uri.authority;
+            const mapUris = mapAuthorities.get(authority) || new Map<string, vscode.Uri>();
+            mapUris.set(test.uri.path, test.uri);
+            mapAuthorities.set(authority, mapUris);
         }
 
         // Queue any children
         test.children.forEach(test => queue.push(test));
     }
 
+    if (cancellation.isCancellationRequested) {
+      // TODO what?
+    }
+
+    for await (const one of mapAuthorities) {
+      const authority = one[0];
+      const mapUris = one[1];
+      const username = 'johnm'; //TODO
+      const testRoot = vscode.Uri.from({scheme: 'isfs', authority, path: `/.vscode/UnitTestRoot/${username}`});
+      try {
+        await vscode.workspace.fs.delete(testRoot, { recursive: true });
+      } catch (error) {
+        console.log(error);
+      }
+      for await (const one of mapUris) {
+        const key = one[0];
+        const uri = one[1];
+        const keyParts = key.split('/');
+        const clsFile = keyParts.pop() || '';
+        const directoryUri = testRoot.with({path: testRoot.path.concat(keyParts.join('/'))});
+        try {
+          await vscode.workspace.fs.copy(uri, directoryUri.with({path: directoryUri.path.concat(clsFile)}));
+        } catch (error) {
+          console.log(error);
+        }
+      }
+    }
+
+    // TODO
     await new Promise(resolve => setTimeout(resolve, 5000));
     run.end();
 }
