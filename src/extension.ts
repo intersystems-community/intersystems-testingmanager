@@ -4,11 +4,13 @@ import * as vscode from "vscode";
 import { setupHistoryExplorerController } from "./historyExplorer";
 import { setupServerTestsController } from "./serverTests";
 import { setupLocalTestsController } from "./localTests";
+import { DebugTrackerFactory } from "./debugTrackerFactory";
 
 export const extensionId = "intersystems-community.testingmanager";
 export let localTestController: vscode.TestController;
 export let loadedTestController: vscode.TestController;
 export let historyBrowserController: vscode.TestController;
+export const allTestRuns: (vscode.TestRun | undefined)[] = [];
 export let osAPI: any;
 export let smAPI: any;
 
@@ -84,6 +86,10 @@ export async function activate(context: vscode.ExtensionContext) {
     historyBrowserController = vscode.tests.createTestController(`${extensionId}-History`, '$(history) Testing History');
     context.subscriptions.push(historyBrowserController);
     await setupHistoryExplorerController();
+
+    context.subscriptions.push(
+      vscode.debug.registerDebugAdapterTrackerFactory('objectscript', new DebugTrackerFactory())
+    );
 
     // Register the commands
     context.subscriptions.push(

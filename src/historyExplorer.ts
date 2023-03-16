@@ -190,7 +190,7 @@ async function addTestAsserts(item: vscode.TestItem, controller: vscode.TestCont
             spec,
             { apiVersion: 1, namespace, path: "/action/query" },
             {
-                query: "SELECT ID, Action, Status, Description FROM %UnitTest_Result.TestAssert WHERE TestMethod = ?",
+                query: "SELECT ID, Counter, COUNT(Counter %FOREACH(TestMethod)) AS MaxCounter, Action, Status, Description FROM %UnitTest_Result.TestAssert WHERE TestMethod = ?",
                 parameters: [testMethod]
             },
         );
@@ -209,7 +209,8 @@ async function addTestAsserts(item: vscode.TestItem, controller: vscode.TestCont
             }
 
             response?.data?.result?.content?.forEach(element => {
-                const child = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Action}`);
+                // Prefix the label with an underscore-padded integer to preserve order
+                const child = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Counter.toString().padStart(element.MaxCounter.toString().length, "_")}. ${element.Action}`);
                 child.description = element.Description;
                 child.canResolveChildren = false;
                 item.children.add(child);
@@ -236,7 +237,7 @@ export function replaceRootItems(controller: vscode.TestController) {
         if (server?.serverName && server.namespace) {
             const key = server.serverName + ':' + server.namespace.toUpperCase();
             if (!rootMap.has(key)) {
-                const item = controller.createTestItem(key, key);
+                const item = controller.createTestItem(key, key, folder.uri);
                 item.canResolveChildren = true;
                 rootMap.set(key, item);
             }

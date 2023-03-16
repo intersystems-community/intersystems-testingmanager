@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { loadedTestController } from './extension';
+import { allTestRuns, IServerSpec, loadedTestController, osAPI } from './extension';
 import { replaceRootItems, serverSpec } from './historyExplorer';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
@@ -29,7 +29,7 @@ async function resolveItemChildren(item: vscode.TestItem) {
                                 `${item.id}:${fullClassName}`,
                                 fullClassName,
                                 vscode.Uri.from({
-                                    scheme: "isfs-readonly",
+                                    scheme: item.uri?.scheme === "isfs" ? "isfs" : "isfs-readonly",
                                     authority: item.id.toLowerCase(),
                                     path: "/" + fullClassName.replace(/\./g, "/") + ".cls"
                                 })
@@ -84,11 +84,15 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
 
     const run = loadedTestController.createTestRun(
         request,
-        'Fake Test Results',
+        'Test Results',
         true
     );
+
     run.appendOutput('Fake output from fake run of fake server tests.\r\nTODO');
-    const mapAuthorities = new Map<string, Map<string, vscode.Uri>>();
+
+    // For each authority (i.e. server:namespace) accumulate a map of the class-level Test nodes in the tree.
+    // We don't yet support running only some TestXXX methods in a testclass
+    const mapAuthorities = new Map<string, Map<string, vscode.TestItem>>();
     const queue: vscode.TestItem[] = [];
 
     // Loop through all included tests, or all known tests, and add them to our queue
@@ -111,16 +115,17 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
 
         // Resolve children if not already done
         if (test.canResolveChildren && !isResolvedMap.get(test)) {
-            resolveItemChildren(test);
+            await resolveItemChildren(test);
         }
 
-        // Mark each leaf item as enqueued and note its .cls file for copying
-        if (test.children.size === 0 && test.uri) {
+        // Mark each leaf item (a TestXXX method in a class) as enqueued and note its .cls file for copying.
+        // Every leaf must have a uri.
+        if (test.children.size === 0 && test.uri && test.parent) {
             run.enqueued(test);
             const authority = test.uri.authority;
-            const mapUris = mapAuthorities.get(authority) || new Map<string, vscode.Uri>();
-            mapUris.set(test.uri.path, test.uri);
-            mapAuthorities.set(authority, mapUris);
+            const mapTestClasses = mapAuthorities.get(authority) || new Map<string, vscode.TestItem>();
+            mapTestClasses.set(test.uri.path, test.parent);
+            mapAuthorities.set(authority, mapTestClasses);
         }
 
         // Queue any children
@@ -131,31 +136,87 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
       // TODO what?
     }
 
-    for await (const one of mapAuthorities) {
-      const authority = one[0];
-      const mapUris = one[1];
-      const username = 'johnm'; //TODO
-      const testRoot = vscode.Uri.from({scheme: 'isfs', authority, path: `/.vscode/UnitTestRoot/${username}`});
-      try {
-        await vscode.workspace.fs.delete(testRoot, { recursive: true });
-      } catch (error) {
-        console.log(error);
-      }
-      for await (const one of mapUris) {
-        const key = one[0];
-        const uri = one[1];
-        const keyParts = key.split('/');
-        const clsFile = keyParts.pop() || '';
-        const directoryUri = testRoot.with({path: testRoot.path.concat(keyParts.join('/'))});
+    for await (const mapInstance of mapAuthorities) {
+      const authority = mapInstance[0];
+      const mapTestClasses = mapInstance[1];
+      const firstClassTestItem = Array.from(mapTestClasses.values())[0];
+      const oneUri = firstClassTestItem.uri;
+
+      // This will always be true since every test added to the map above required a uri
+      if (oneUri) {
+        const folder = vscode.workspace.getWorkspaceFolder(oneUri);
+        const server = osAPI.serverForUri(oneUri);
+        const username = server.username || 'UnknownUser';
+        const testRoot = vscode.Uri.from({scheme: 'isfs', authority, path: `/.vscode/UnitTestRoot/${username}`});
         try {
-          await vscode.workspace.fs.copy(uri, directoryUri.with({path: directoryUri.path.concat(clsFile)}));
+          // Limitation of the Atelier API means this can only delete the files, not the folders
+          // but zombie folders shouldn't cause problems.
+          await vscode.workspace.fs.delete(testRoot, { recursive: true });
         } catch (error) {
           console.log(error);
+        }
+        for await (const mapInstance of mapTestClasses) {
+          const key = mapInstance[0];
+          const uri = mapInstance[1].uri;
+          const keyParts = key.split('/');
+          const clsFile = keyParts.pop() || '';
+          const directoryUri = testRoot.with({path: testRoot.path.concat(keyParts.join('/'))});
+          // This will always be true since every test added to the map above required a uri
+          if (uri) {
+            try {
+              await vscode.workspace.fs.copy(uri, directoryUri.with({path: directoryUri.path.concat(clsFile)}));
+            } catch (error) {
+              console.log(error);
+            }
+          }
+        }
+
+        // Find this user's most recent TestInstance
+        const serverSpec: IServerSpec = {
+          username: server.username,
+          name: server.serverName,
+          webServer: {
+            host: server.host,
+            port: server.port,
+            pathPrefix: server.pathPrefix,
+            scheme: server.scheme
+          }
+        }
+        const response = await makeRESTRequest(
+            "POST",
+            serverSpec,
+            { apiVersion: 1, namespace: server.namespace, path: "/action/query" },
+            {
+                query: "SELECT TOP 1 ID, TestInstance, Name, Duration, Status, ErrorDescription FROM %UnitTest_Result.TestSuite WHERE Name %STARTSWITH ? ORDER BY TestInstance DESC",
+                parameters: [`${server.username}\\`]
+            },
+        );
+        if (response) {
+            const latestInstanceId = response?.data?.result?.content?.[0]?.ID;
+            console.log(latestInstanceId);
+        }
+
+        // Run tests through the debugger but only stop at breakpoints etc if user chose "Debug Test" instead of "Run Test"
+        const runIndex = allTestRuns.push(run) - 1;
+        const configuration: vscode.DebugConfiguration = {
+          "type": "objectscript",
+          "request": "launch",
+          "name": `ServerTests:${server.username}`,
+          "program": `##class(%UnitTest.Manager).RunTest("${server.username}","/noload/nodelete")`,
+          "testRunIndex": runIndex,
+          "testIdBase": firstClassTestItem.id.split(":", 2).join(":")
+        };
+        const sessionOptions: vscode.DebugSessionOptions = {
+          noDebug: request.profile?.kind !== vscode.TestRunProfileKind.Debug
+        }
+        if (!await vscode.debug.startDebugging(folder, configuration, sessionOptions)) {
+          await vscode.window.showErrorMessage(`Failed to launch testing`, { modal: true });
+          run.end();
+          allTestRuns[runIndex] = undefined;
+          return;
         }
       }
     }
 
-    // TODO
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    run.end();
+    //run.end();
 }
