@@ -1,9 +1,12 @@
 import * as vscode from 'vscode';
 import { allTestRuns, loadedTestController, localTestController } from './extension';
+import { refreshHistoryRootItem } from './historyExplorer';
 
 export class DebugTracker implements vscode.DebugAdapterTracker {
 
   private session: vscode.DebugSession;
+  private serverName: string;
+  private namespace: string;
   private testController: vscode.TestController
   private run?: vscode.TestRun;
   private testIdBase: string;
@@ -17,7 +20,9 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
 
   constructor(session: vscode.DebugSession) {
     this.session = session;
-    this.testController = this.session.configuration.name.startsWith('ServerTests:') ? loadedTestController : localTestController;
+    let runType: string;
+    [ runType, this.serverName, this.namespace ] = this.session.configuration.name.split(':');
+    this.testController = runType === 'ServerTests' ? loadedTestController : localTestController;
     this.run = allTestRuns[this.session.configuration.testRunIndex];
     this.testIdBase = this.session.configuration.testIdBase;
     this.classTestCollection = this.testController.items.get(this.testIdBase)?.children;
@@ -118,6 +123,7 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
     console.log(`**Stopping session ${this.session.name}`);
     if (this.run) {
       this.run.end();
+      refreshHistoryRootItem(this.serverName, this.namespace);
     }
 
     // Clear reference to run (not known if this is necessary)

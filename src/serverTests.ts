@@ -182,13 +182,14 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
             scheme: server.scheme
           }
         }
+        const namespace: string = server.namespace.toUpperCase();
         const response = await makeRESTRequest(
             "POST",
             serverSpec,
-            { apiVersion: 1, namespace: server.namespace, path: "/action/query" },
+            { apiVersion: 1, namespace, path: "/action/query" },
             {
                 query: "SELECT TOP 1 ID, TestInstance, Name, Duration, Status, ErrorDescription FROM %UnitTest_Result.TestSuite WHERE Name %STARTSWITH ? ORDER BY TestInstance DESC",
-                parameters: [`${server.username}\\`]
+                parameters: [`${serverSpec.username}\\`]
             },
         );
         if (response) {
@@ -201,8 +202,8 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
         const configuration: vscode.DebugConfiguration = {
           "type": "objectscript",
           "request": "launch",
-          "name": `ServerTests:${server.username}`,
-          "program": `##class(%UnitTest.Manager).RunTest("${server.username}","/noload/nodelete")`,
+          "name": `ServerTests:${serverSpec.name}:${namespace}:${serverSpec.username}`,
+          "program": `##class(%UnitTest.Manager).RunTest("${serverSpec.username}","/noload/nodelete")`,
           "testRunIndex": runIndex,
           "testIdBase": firstClassTestItem.id.split(":", 2).join(":")
         };

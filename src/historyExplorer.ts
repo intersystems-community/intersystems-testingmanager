@@ -37,7 +37,15 @@ export async function setupHistoryExplorerController() {
             replaceRootItems(historyBrowserController);
         }
     }
-    historyBrowserController.items.replace([historyBrowserController.createTestItem('-', 'loading...')]);
+
+    const refresh = (token?: vscode.CancellationToken) => {
+      historyBrowserController.items.replace([historyBrowserController.createTestItem('-', 'loading...')]);
+      replaceRootItems(historyBrowserController);
+    }
+    refresh();
+
+    // Add a manual Refresh button
+    historyBrowserController.refreshHandler = refresh;
 
 }
 
@@ -54,7 +62,7 @@ async function addTestInstances(item: vscode.TestItem, controller: vscode.TestCo
             "POST",
             spec,
             { apiVersion: 1, namespace, path: "/action/query" },
-            { query: "SELECT InstanceIndex, DateTime, Duration FROM %UnitTest_Result.TestInstance" },
+            { query: "SELECT TOP 10 InstanceIndex, DateTime, Duration FROM %UnitTest_Result.TestInstance ORDER BY DateTime DESC" },
         );
         if (response) {
             const portalUri = vscode.Uri.from({
@@ -68,6 +76,7 @@ async function addTestInstances(item: vscode.TestItem, controller: vscode.TestCo
                     `${element.DateTime}`,
                     portalUri.with({ query: `Index=${element.InstanceIndex}&$NAMESPACE=${namespace}` })
                 );
+                child.sortText = (1e12 - element.InstanceIndex).toString().padStart(12, "0");
                 child.description = `run ${element.InstanceIndex}`;
                 child.canResolveChildren = true;
                 item.children.add(child);
@@ -209,8 +218,8 @@ async function addTestAsserts(item: vscode.TestItem, controller: vscode.TestCont
             }
 
             response?.data?.result?.content?.forEach(element => {
-                // Prefix the label with an underscore-padded integer to preserve order
-                const child = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Counter.toString().padStart(element.MaxCounter.toString().length, "_")}. ${element.Action}`);
+                const child = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Action}`);
+                child.sortText = `${element.Counter.toString().padStart(element.MaxCounter.toString().length, "0")}`;
                 child.description = element.Description;
                 child.canResolveChildren = false;
                 item.children.add(child);
@@ -245,4 +254,12 @@ export function replaceRootItems(controller: vscode.TestController) {
     });
     rootMap.forEach(item => rootItems.push(item));
     controller.items.replace(rootItems);
+}
+
+export function refreshHistoryRootItem(serverName: string, namespace: string) {
+  const item = historyBrowserController.items.get(serverName + ":" + namespace);
+  if (item) {
+    item.children.replace([]);
+    addTestInstances(item, historyBrowserController);
+  }
 }
