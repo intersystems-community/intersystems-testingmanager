@@ -83,7 +83,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(loadedTestController);
     await setupServerTestsController();
 
-    historyBrowserController = vscode.tests.createTestController(`${extensionId}-History`, '$(history) Testing History');
+    historyBrowserController = vscode.tests.createTestController(`${extensionId}-History`, '$(history) Recent History');
     context.subscriptions.push(historyBrowserController);
     await setupHistoryExplorerController();
 

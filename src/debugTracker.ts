@@ -34,7 +34,7 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
         return;
       }
       const line: string = (message.body.output as string).replace(/\n/, '');
-      //console.log(`${line}`);
+      this.run.appendOutput(line + '\r\n');
       if (this.className === undefined) {
         const classBegin = line.match(/^    ([%\dA-Za-z][\dA-Za-z\.]*) begins \.\.\.$/);
         if (classBegin) {

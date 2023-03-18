@@ -22,39 +22,39 @@ async function resolveItemChildren(item: vscode.TestItem) {
                     { query: `CALL %Dictionary.ClassDefinition_SubclassOf('%UnitTest.TestCase', '${(namespace === "%SYS" ? "" : "@")}')` },
                 );
                 if (response) {
-                    response?.data?.result?.content?.forEach(async element => {
+                    for await (const element of response?.data?.result?.content) {
                         const fullClassName: string = element.Name;
-
-                            const tiClass = loadedTestController.createTestItem(
-                                `${item.id}:${fullClassName}`,
-                                fullClassName,
-                                vscode.Uri.from({
-                                    scheme: item.uri?.scheme === "isfs" ? "isfs" : "isfs-readonly",
-                                    authority: item.id.toLowerCase(),
-                                    path: "/" + fullClassName.replace(/\./g, "/") + ".cls"
-                                })
-                            );
-                            const symbols = await vscode.commands.executeCommand<vscode.ProviderResult<vscode.SymbolInformation[] | vscode.DocumentSymbol[]>>('vscode.executeDocumentSymbolProvider', tiClass.uri);
-                            if (symbols?.length === 1 && symbols[0].kind === vscode.SymbolKind.Class) {
-                                const symbol = symbols[0];
-                                tiClass.range = (symbol as vscode.DocumentSymbol).range || (symbol as vscode.SymbolInformation).location.range;
-                                (symbol as vscode.DocumentSymbol).children.forEach(childSymbol => {
-                                    if (childSymbol.kind === vscode.SymbolKind.Method && childSymbol.name.startsWith("Test")) {
-                                        const testMethodName = childSymbol.name;
-                                        const tiMethod = loadedTestController.createTestItem(
-                                            `${tiClass.id}:${testMethodName}`,
-                                            testMethodName.slice(4),
-                                            tiClass.uri
-                                        );
-                                        tiMethod.range = childSymbol.range;
-                                        tiClass.children.add(tiMethod);
-                                    }
-                                });
-                            }
-                            if (tiClass.children.size > 0) {
-                                item.children.add(tiClass);
-                            }
-                    });
+                        const tiClass = loadedTestController.createTestItem(
+                            `${item.id}:${fullClassName}`,
+                            fullClassName,
+                            vscode.Uri.from({
+                                scheme: item.uri?.scheme === "isfs" ? "isfs" : "isfs-readonly",
+                                authority: item.id.toLowerCase(),
+                                path: "/" + fullClassName.replace(/\./g, "/") + ".cls",
+                                query: item.uri?.query
+                            })
+                        );
+                        const symbols = await vscode.commands.executeCommand<vscode.ProviderResult<vscode.SymbolInformation[] | vscode.DocumentSymbol[]>>('vscode.executeDocumentSymbolProvider', tiClass.uri);
+                        if (symbols?.length === 1 && symbols[0].kind === vscode.SymbolKind.Class) {
+                            const symbol = symbols[0];
+                            tiClass.range = (symbol as vscode.DocumentSymbol).range || (symbol as vscode.SymbolInformation).location.range;
+                            (symbol as vscode.DocumentSymbol).children.forEach(childSymbol => {
+                                if (childSymbol.kind === vscode.SymbolKind.Method && childSymbol.name.startsWith("Test")) {
+                                    const testMethodName = childSymbol.name;
+                                    const tiMethod = loadedTestController.createTestItem(
+                                        `${tiClass.id}:${testMethodName}`,
+                                        testMethodName.slice(4),
+                                        tiClass.uri
+                                    );
+                                    tiMethod.range = childSymbol.range;
+                                    tiClass.children.add(tiMethod);
+                                }
+                            });
+                        }
+                        if (tiClass.children.size > 0) {
+                            item.children.add(tiClass);
+                        }
+                    }
                 }
             }
         }
@@ -81,14 +81,6 @@ export async function setupServerTestsController() {
 
 export async function runTestsHandler(request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
     logger.info('runTestsHandler invoked');
-
-    const run = loadedTestController.createTestRun(
-        request,
-        'Test Results',
-        true
-    );
-
-    run.appendOutput('Fake output from fake run of fake server tests.\r\nTODO');
 
     // For each authority (i.e. server:namespace) accumulate a map of the class-level Test nodes in the tree.
     // We don't yet support running only some TestXXX methods in a testclass
@@ -121,7 +113,6 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
         // Mark each leaf item (a TestXXX method in a class) as enqueued and note its .cls file for copying.
         // Every leaf must have a uri.
         if (test.children.size === 0 && test.uri && test.parent) {
-            run.enqueued(test);
             const authority = test.uri.authority;
             const mapTestClasses = mapAuthorities.get(authority) || new Map<string, vscode.TestItem>();
             mapTestClasses.set(test.uri.path, test.parent);
@@ -132,11 +123,23 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
         test.children.forEach(test => queue.push(test));
     }
 
+    if (mapAuthorities.size === 0) {
+      // Nothing included
+      vscode.window.showWarningMessage(`Empty test run`);
+      return;
+    }
+
     if (cancellation.isCancellationRequested) {
       // TODO what?
     }
 
     for await (const mapInstance of mapAuthorities) {
+
+      const run = loadedTestController.createTestRun(
+        request,
+        'Test Results',
+        true
+      );
       const authority = mapInstance[0];
       const mapTestClasses = mapInstance[1];
       const firstClassTestItem = Array.from(mapTestClasses.values())[0];
@@ -157,21 +160,25 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
         }
         for await (const mapInstance of mapTestClasses) {
           const key = mapInstance[0];
-          const uri = mapInstance[1].uri;
+          const classTest = mapInstance[1];
+          const uri = classTest.uri;
           const keyParts = key.split('/');
           const clsFile = keyParts.pop() || '';
-          const directoryUri = testRoot.with({path: testRoot.path.concat(keyParts.join('/'))});
+          const directoryUri = testRoot.with({path: testRoot.path.concat(keyParts.join('/') + '/')});
           // This will always be true since every test added to the map above required a uri
           if (uri) {
             try {
               await vscode.workspace.fs.copy(uri, directoryUri.with({path: directoryUri.path.concat(clsFile)}));
             } catch (error) {
               console.log(error);
+              continue;
             }
+            classTest.children.forEach((methodTest) => {
+              run.enqueued(methodTest);
+            });
           }
         }
 
-        // Find this user's most recent TestInstance
         const serverSpec: IServerSpec = {
           username: server.username,
           name: server.serverName,
@@ -183,6 +190,8 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
           }
         }
         const namespace: string = server.namespace.toUpperCase();
+/*
+        // Find this user's most recent TestInstance (TODO - unused, can be removed)
         const response = await makeRESTRequest(
             "POST",
             serverSpec,
@@ -196,6 +205,7 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
             const latestInstanceId = response?.data?.result?.content?.[0]?.ID;
             console.log(latestInstanceId);
         }
+*/
 
         // Run tests through the debugger but only stop at breakpoints etc if user chose "Debug Test" instead of "Run Test"
         const runIndex = allTestRuns.push(run) - 1;
@@ -208,7 +218,8 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
           "testIdBase": firstClassTestItem.id.split(":", 2).join(":")
         };
         const sessionOptions: vscode.DebugSessionOptions = {
-          noDebug: request.profile?.kind !== vscode.TestRunProfileKind.Debug
+          noDebug: request.profile?.kind !== vscode.TestRunProfileKind.Debug,
+          suppressDebugToolbar: request.profile?.kind !== vscode.TestRunProfileKind.Debug
         }
         if (!await vscode.debug.startDebugging(folder, configuration, sessionOptions)) {
           await vscode.window.showErrorMessage(`Failed to launch testing`, { modal: true });
@@ -218,6 +229,4 @@ export async function runTestsHandler(request: vscode.TestRunRequest, cancellati
         }
       }
     }
-
-    //run.end();
 }

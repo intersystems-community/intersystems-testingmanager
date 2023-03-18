@@ -38,14 +38,11 @@ export async function setupHistoryExplorerController() {
         }
     }
 
-    const refresh = (token?: vscode.CancellationToken) => {
-      historyBrowserController.items.replace([historyBrowserController.createTestItem('-', 'loading...')]);
-      replaceRootItems(historyBrowserController);
-    }
-    refresh();
-
     // Add a manual Refresh button
-    historyBrowserController.refreshHandler = refresh;
+    historyBrowserController.refreshHandler = (token?: vscode.CancellationToken) => {
+        historyBrowserController.items.replace([historyBrowserController.createTestItem('-', 'loading...')]);
+        replaceRootItems(historyBrowserController);
+      }
 
 }
 
@@ -170,7 +167,9 @@ async function addTestMethods(item: vscode.TestItem, controller: vscode.TestCont
         if (response) {
             const run = controller.createTestRun(new vscode.TestRunRequest(), `Item '${item.label}' history`, false);
             response?.data?.result?.content?.forEach(element => {
-                const child = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Name}`);
+                const methodName: string = element.Name;
+                // We drop the first 4 characters of the method name because they should always be "Test"
+                const child = controller.createTestItem(`${item.id}:${element.ID}`, `${methodName.slice(4)}`);
                 child.canResolveChildren = true;
                 item.children.add(child);
 
