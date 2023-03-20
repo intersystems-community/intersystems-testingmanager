@@ -10,11 +10,10 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
   private testController: vscode.TestController
   private run?: vscode.TestRun;
   private testIdBase: string;
-  private classTestCollection?: vscode.TestItemCollection;
   private className?: string;
-  private classTest?: vscode.TestItem;
   private testMethodName?: string;
   private testDuration?: number;
+  private methodTestMap: Map<string, vscode.TestItem>;
   private methodTest?: vscode.TestItem;
   private failureMessages: vscode.TestMessage[] = [];
 
@@ -22,10 +21,29 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
     this.session = session;
     let runType: string;
     [ runType, this.serverName, this.namespace ] = this.session.configuration.name.split(':');
-    this.testController = runType === 'ServerTests' ? loadedTestController : localTestController;
+    this.testController = runType === 'LoadedTests' ? loadedTestController : localTestController;
     this.run = allTestRuns[this.session.configuration.testRunIndex];
     this.testIdBase = this.session.configuration.testIdBase;
-    this.classTestCollection = this.testController.items.get(this.testIdBase)?.children;
+    this.methodTestMap = new Map<string, vscode.TestItem>();
+
+    const addToMethodTestMap = (testItem?: vscode.TestItem) => {
+      if (!testItem) {
+        return;
+      }
+      if (testItem.children.size > 0) {
+        testItem.children.forEach(addToMethodTestMap);
+      } else {
+        this.methodTestMap.set(testItem.id, testItem);
+      }
+    }
+
+    if (runType === 'LoadedTests') {
+      // This tree is flat
+      addToMethodTestMap(this.testController.items.get(this.testIdBase));
+    } else {
+      // This tree is nested
+      addToMethodTestMap(this.testController.items.get(this.testIdBase + ':'));
+    }
   }
 
   onDidSendMessage(message: any): void {
@@ -39,7 +57,6 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
         const classBegin = line.match(/^    ([%\dA-Za-z][\dA-Za-z\.]*) begins \.\.\.$/);
         if (classBegin) {
           this.className = classBegin[1];
-          this.classTest = this.classTestCollection?.get(`${this.testIdBase}:${this.className}`);
         }
         return;
       }
@@ -53,7 +70,7 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
         const methodBegin = line.match(/^      Test([%\dA-Za-z][\dA-Za-z]*).* begins \.\.\.$/);
         if (methodBegin) {
           this.testMethodName = methodBegin[1];
-          this.methodTest = this.classTest?.children.get(`${this.classTest.id}:Test${this.testMethodName}`);
+          this.methodTest = this.methodTestMap.get(`${this.testIdBase}:${this.className}:Test${this.testMethodName}`);
           this.failureMessages = [];
           if (this.methodTest) {
             this.run.started(this.methodTest)
@@ -63,7 +80,7 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
       } else {
         if (line.startsWith(`      Test${this.testMethodName} `)) {
           const outcome = line.split(this.testMethodName + ' ')[1];
-          console.log(`Class ${this.className}, Test-method ${this.testMethodName}, outcome=${outcome}`);
+          //console.log(`Class ${this.className}, Test-method ${this.testMethodName}, outcome=${outcome}`);
           if (this.methodTest) {
             switch (outcome) {
               case 'passed':
@@ -89,21 +106,21 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
       if (this.className && this.testMethodName) {
         const assertPassedMatch = line.match(/^        (Assert\w+):(.*) \(passed\)$/);
         if (assertPassedMatch) {
-          const macroName = assertPassedMatch[1];
-          const message = assertPassedMatch[2];
-          console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName ${macroName}, outcome 'passed', message=${message}`);
+          //const macroName = assertPassedMatch[1];
+          //const message = assertPassedMatch[2];
+          //console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName ${macroName}, outcome 'passed', message=${message}`);
         } else {
           const assertFailedMatch = line.match(/^(Assert\w+):(.*) \(failed\)  <<====/);
           if (assertFailedMatch) {
-            const macroName = assertFailedMatch[1];
+            //const macroName = assertFailedMatch[1];
             const message = assertFailedMatch[2];
-            console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName ${macroName}, outcome 'failed', message=${message}`);
+            //console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName ${macroName}, outcome 'failed', message=${message}`);
             this.failureMessages.push({ message: message });
           } else {
             const logMessageMatch = line.match(/^        LogMessage:(.*)$/);
             if (logMessageMatch) {
               const message = logMessageMatch[1];
-              console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName LogMessage, message=${message}`);
+              //console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName LogMessage, message=${message}`);
               const duration = message.match(/^Duration of execution: (\d*\.\d+) sec.$/);
               if (duration) {
                 this.testDuration = + duration[1] * 1000;
@@ -116,11 +133,11 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
   }
 
   onWillStartSession(): void {
-    console.log(`**Starting session ${this.session.name}, run.name = ${this.run?.name}`);
+    //console.log(`**Starting session ${this.session.name}, run.name = ${this.run?.name}`);
   }
 
   onWillStopSession(): void {
-    console.log(`**Stopping session ${this.session.name}`);
+    //console.log(`**Stopping session ${this.session.name}`);
     if (this.run) {
       this.run.end();
       refreshHistoryRootItem(this.serverName, this.namespace);

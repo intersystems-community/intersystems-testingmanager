@@ -235,21 +235,24 @@ async function addTestAsserts(item: vscode.TestItem, controller: vscode.TestCont
     }
 }
 
-/* Replace a test controller's root items with one item for each server:NAMESPACE this workspace uses
+/* Replace a test controller's root items with one item for each server:NAMESPACE this workspace uses.
+  If `schemes` array is passed, a folder must use one of the named schemes in order to qualify.
 */
-export function replaceRootItems(controller: vscode.TestController) {
+export function replaceRootItems(controller: vscode.TestController, schemes?: string[]) {
     const rootItems: vscode.TestItem[] = [];
     const rootMap = new Map<string, vscode.TestItem>();
     vscode.workspace.workspaceFolders?.forEach(folder => {
+      if (!schemes || schemes.includes(folder.uri.scheme)) {
         const server = osAPI.serverForUri(folder.uri);
         if (server?.serverName && server.namespace) {
-            const key = server.serverName + ':' + server.namespace.toUpperCase();
+            const key = server.serverName + ":" + server.namespace.toUpperCase();
             if (!rootMap.has(key)) {
                 const item = controller.createTestItem(key, key, folder.uri);
                 item.canResolveChildren = true;
                 rootMap.set(key, item);
             }
         }
+      }
     });
     rootMap.forEach(item => rootItems.push(item));
     controller.items.replace(rootItems);

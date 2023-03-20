@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { commonRunTestsHandler } from './commonRunTestsHandler';
 import { localTestController, osAPI } from './extension';
 import logger from './logger';
 
@@ -14,14 +15,14 @@ async function resolveItemChildren(item: vscode.TestItem) {
                 const contents = await vscode.workspace.fs.readDirectory(itemUri);
                 contents.filter((entry) => entry[1] === vscode.FileType.Directory).forEach((entry) => {
                     const name = entry[0];
-                    const child = localTestController.createTestItem(`${item.id}.${name}`, name, itemUri.with({path: `${itemUri.path}/${name}`}));
+                    const child = localTestController.createTestItem(`${item.id}${name}.`, name, itemUri.with({path: `${itemUri.path}/${name}`}));
                     child.canResolveChildren = true;
                     item.children.add(child);
                 });
                 contents.filter((entry) => entry[1] === vscode.FileType.File).forEach((entry) => {
                     const name = entry[0];
                     if (name.endsWith('.cls')) {
-                        const child = localTestController.createTestItem(`${item.id}.${name}`, name, itemUri.with({path: `${itemUri.path}/${name}`}));
+                        const child = localTestController.createTestItem(`${item.id}${name.slice(0, name.length - 4)}`, name, itemUri.with({path: `${itemUri.path}/${name}`}));
                         child.canResolveChildren = true;
                         item.children.add(child);
                     }
@@ -45,14 +46,16 @@ async function resolveItemChildren(item: vscode.TestItem) {
                             const match = lineText.match(/^Method Test(.+)\(/);
                             if (match) {
                                 const testName = match[1];
-                                // const child = localTestController.createTestItem(`${item.id}.${testName}`, testName, itemUri.with({fragment: `L${index + 1}`}));
-                                const child = localTestController.createTestItem(`${item.id}.${testName}`, testName, itemUri);
+                                const child = localTestController.createTestItem(`${item.id}:Test${testName}`, testName, itemUri);
                                 child.range = new vscode.Range(new vscode.Position(index, 0), new vscode.Position(index + 1, 0))
                                 child.canResolveChildren = false;
                                 item.children.add(child);
+                                if (!child.parent) {
+                                  console.log(`*** BUG - child (id=${child.id}) has no parent after item.children.add(child) where item.id=${item.id}`);
+                                }
                             }
                         }
-                        console.log(file);
+                        //console.log(file);
                     } catch (error) {
                         item.error = `${error.name ?? 'Unknown error'} - ${error.message ?? '(no message)'}`;
                     }
@@ -73,6 +76,10 @@ async function resolveItemChildren(item: vscode.TestItem) {
     }
 }
 
+async function runTestsHandler(request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
+  await commonRunTestsHandler(localTestController, resolveItemChildren, request, cancellation);
+}
+
 export async function setupLocalTestsController() {
     logger.info('setupLocalTestsController invoked');
 
@@ -80,78 +87,10 @@ export async function setupLocalTestsController() {
     localTestController.items.replace([localTestController.createTestItem('-', 'loading...')]);
 }
 
-export async function runTestsHandler(request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
-    logger.info('runTestsHandler invoked');
 
-    const run = localTestController.createTestRun(
-        request,
-        'Fake Test Results',
-        true
-    );
-    run.appendOutput('Fake output from fake run of local tests.\r\nTODO');
-    const queue: vscode.TestItem[] = [];
-
-    // Loop through all included tests, or all known tests, and add them to our queue
-    if (request.include) {
-        request.include.forEach(test => queue.push(test));
-    } else {
-        localTestController.items.forEach(test => queue.push(test));
-    }
-
-    // For every test that was queued, try to run it. Call run.passed() or run.failed().
-    // The `TestMessage` can contain extra information, like a failing location or
-    // a diff output. But here we'll just give it a textual message.
-    while (queue.length > 0 && !cancellation.isCancellationRequested) {
-        const test = queue.pop()!;
-
-        // Skip tests the user asked to exclude
-        if (request.exclude?.includes(test)) {
-            continue;
-        }
-
-        // Resolve children if not already done
-        if (test.canResolveChildren && !isResolvedMap.get(test)) {
-            resolveItemChildren(test);
-        }
-
-        // Return result for leaf items
-        if (test.children.size === 0) {
-            //TODO actually run the test
-            const outcome = (Math.random() * 5 + 0.5).toFixed(0);
-            switch (outcome) {
-                case '1':
-                    run.skipped(test);
-                    break;
-
-                case '2':
-                    // TODO
-                    run.failed(test, new vscode.TestMessage('fake failure'), 1230);
-                    break;
-
-                case '3':
-                    // TODO
-                    run.errored(test, new vscode.TestMessage('fake error'), 900);
-                    break;
-
-                case '4':
-                    run.enqueued(test);
-                    break;
-
-                default:
-                    // TODO
-                    run.passed(test, 4560);
-                    break;
-            }
-        }
-
-        // Queue any children
-        test.children.forEach(test => queue.push(test));
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    run.end();
+export function relativeTestRoot(folder: vscode.WorkspaceFolder): string {
+  return vscode.workspace.getConfiguration('intersystems.testingManager', folder.uri).get<string>('relativeTestRoot') || 'internal/testing/unit_tests';
 }
-
 
 /* Replace root items with one item for each file-type workspace root for which a named server can be identified
 */
@@ -162,11 +101,11 @@ function replaceLocalRootItems(controller: vscode.TestController) {
         if (folder.uri.scheme === 'file') {
             const server = osAPI.serverForUri(folder.uri);
             if (server?.serverName && server.namespace) {
-                const key = folder.index.toString();
+                const key = server.serverName + ":" + server.namespace + ":";
                 if (!rootMap.has(key)) {
-                    const relativeTestRoot = vscode.workspace.getConfiguration('intersystems.testingManager', folder.uri).get<string>('relativeTestRoot') || 'internal/testing/unit_tests';
-                    const item = controller.createTestItem(key, folder.name, folder.uri.with({path: `${folder.uri.path}/${relativeTestRoot}`}));
-                    item.description = relativeTestRoot;
+                    const relativeRoot = relativeTestRoot(folder);
+                    const item = controller.createTestItem(key, folder.name, folder.uri.with({path: `${folder.uri.path}/${relativeRoot}`}));
+                    item.description = relativeRoot;
                     item.canResolveChildren = true;
                     rootMap.set(key, item);
                 }
