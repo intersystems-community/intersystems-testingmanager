@@ -10,9 +10,13 @@ export const extensionId = "intersystems-community.testingmanager";
 export let localTestController: vscode.TestController;
 export let loadedTestController: vscode.TestController;
 export let historyBrowserController: vscode.TestController;
-export const allTestRuns: (vscode.TestRun | undefined)[] = [];
 export let osAPI: any;
 export let smAPI: any;
+
+export interface TestRun extends vscode.TestRun {
+  debugSession?: vscode.DebugSession
+}
+export const allTestRuns: (TestRun | undefined)[] = [];
 
 export interface IWebServerSpec {
     scheme?: string;

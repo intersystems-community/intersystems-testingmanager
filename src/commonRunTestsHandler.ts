@@ -11,12 +11,14 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
   // For each authority (i.e. server:namespace) accumulate a map of the class-level Test nodes in the tree.
   // We don't yet support running only some TestXXX methods in a testclass
   const mapAuthorities = new Map<string, Map<string, vscode.TestItem>>();
+  const runIndices: number[] =[];
   const queue: vscode.TestItem[] = [];
 
   // Loop through all included tests, or all known tests, and add them to our queue
   if (request.include) {
     request.include.forEach(test => queue.push(test));
   } else {
+    // Run was launched from controller's root level
     controller.items.forEach(test => queue.push(test));
   }
 
@@ -25,7 +27,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
     const test = queue.pop()!;
 
     // Skip tests the user asked to exclude
-    if (request.exclude?.includes(test)) {
+    if (request.exclude && request.exclude.filter((excludedTest) => excludedTest.id === test.id).length > 0) {
       continue;
     }
 
@@ -58,15 +60,26 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
     test.children.forEach(test => queue.push(test));
   }
 
+  // Cancelled while building our structures?
+  if (cancellation.isCancellationRequested) {
+    return;
+  }
+
   if (mapAuthorities.size === 0) {
     // Nothing included
     vscode.window.showWarningMessage(`Empty test run`);
     return;
   }
 
-  if (cancellation.isCancellationRequested) {
-    // TODO what?
-  }
+  // Stop debugging sessions we started
+  cancellation.onCancellationRequested(() => {
+    runIndices.forEach((runIndex) => {
+      const session = allTestRuns[runIndex]?.debugSession;
+      if (session) {
+        vscode.debug.stopDebugging(session);
+      }
+    });
+  });
 
   for await (const mapInstance of mapAuthorities) {
 
@@ -135,20 +148,43 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       const runQualifiers = controller.id === `${extensionId}-Local` ? "" : "/noload/nodelete";
       // Run tests through the debugger but only stop at breakpoints etc if user chose "Debug Test" instead of "Run Test"
       const runIndex = allTestRuns.push(run) - 1;
-      const configuration: vscode.DebugConfiguration = {
+      runIndices.push(runIndex);
+
+      // Compute the testspec argument for %UnitTest.Manager.RunTest() call.
+      // Typically it is a testsuite, the subfolder where we copied all the testclasses,
+      // but if only a single method of a single class is being tested we will also specify testcase and testmethod.
+      let testSpec = serverSpec.username;
+      if (request.include?.length === 1) {
+        const idParts = request.include[0].id.split(":");
+        if (idParts.length === 4) {
+          testSpec = `${serverSpec.username}:${idParts[2]}:${idParts[3]}`;
+        }
+      }
+
+      const configuration = {
         "type": "objectscript",
         "request": "launch",
         "name": `${controller.id.split("-").pop()}Tests:${serverSpec.name}:${namespace}:${serverSpec.username}`,
-        "program": `##class(%UnitTest.Manager).RunTest("${serverSpec.username}","${runQualifiers}")`,
-        "testRunIndex": runIndex,
-        "testIdBase": firstClassTestItem.id.split(":", 2).join(":")
+        "program": `##class(%UnitTest.Manager).RunTest("${testSpec}","${runQualifiers}")`,
+
+        // Extra properties needed by our DebugAdapterTracker
+        "testingRunIndex": runIndex,
+        "testingIdBase": firstClassTestItem.id.split(":", 2).join(":")
       };
       const sessionOptions: vscode.DebugSessionOptions = {
         noDebug: request.profile?.kind !== vscode.TestRunProfileKind.Debug,
         suppressDebugToolbar: request.profile?.kind !== vscode.TestRunProfileKind.Debug
       };
-      if (!await vscode.debug.startDebugging(folder, configuration, sessionOptions)) {
-        await vscode.window.showErrorMessage(`Failed to launch testing`, { modal: true });
+
+      // ObjectScript debugger's initializeRequest handler needs to identify target server and namespace
+      // and does this from current active document, so here we make sure there's a suitable one.
+      vscode.commands.executeCommand("vscode.open", oneUri, { preserveFocus: true });
+
+      // Start the debugger unless cancelled
+      if (cancellation.isCancellationRequested || !await vscode.debug.startDebugging(folder, configuration, sessionOptions)) {
+        if (!cancellation.isCancellationRequested) {
+          await vscode.window.showErrorMessage(`Failed to launch testing`, { modal: true });
+        }
         run.end();
         allTestRuns[runIndex] = undefined;
         return;

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { allTestRuns, loadedTestController, localTestController } from './extension';
+import { allTestRuns, loadedTestController, localTestController, TestRun } from './extension';
 import { refreshHistoryRootItem } from './historyExplorer';
 
 export class DebugTracker implements vscode.DebugAdapterTracker {
@@ -8,8 +8,8 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
   private serverName: string;
   private namespace: string;
   private testController: vscode.TestController
-  private run?: vscode.TestRun;
-  private testIdBase: string;
+  private run?: TestRun;
+  private testingIdBase: string;
   private className?: string;
   private testMethodName?: string;
   private testDuration?: number;
@@ -22,8 +22,11 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
     let runType: string;
     [ runType, this.serverName, this.namespace ] = this.session.configuration.name.split(':');
     this.testController = runType === 'LoadedTests' ? loadedTestController : localTestController;
-    this.run = allTestRuns[this.session.configuration.testRunIndex];
-    this.testIdBase = this.session.configuration.testIdBase;
+    this.run = allTestRuns[this.session.configuration.testingRunIndex];
+    if (this.run) {
+      this.run.debugSession = session;
+    };
+    this.testingIdBase = this.session.configuration.testingIdBase;
     this.methodTestMap = new Map<string, vscode.TestItem>();
 
     const addToMethodTestMap = (testItem?: vscode.TestItem) => {
@@ -39,10 +42,10 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
 
     if (runType === 'LoadedTests') {
       // This tree is flat
-      addToMethodTestMap(this.testController.items.get(this.testIdBase));
+      addToMethodTestMap(this.testController.items.get(this.testingIdBase));
     } else {
       // This tree is nested
-      addToMethodTestMap(this.testController.items.get(this.testIdBase + ':'));
+      addToMethodTestMap(this.testController.items.get(this.testingIdBase + ':'));
     }
   }
 
@@ -70,7 +73,7 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
         const methodBegin = line.match(/^      Test([%\dA-Za-z][\dA-Za-z]*).* begins \.\.\.$/);
         if (methodBegin) {
           this.testMethodName = methodBegin[1];
-          this.methodTest = this.methodTestMap.get(`${this.testIdBase}:${this.className}:Test${this.testMethodName}`);
+          this.methodTest = this.methodTestMap.get(`${this.testingIdBase}:${this.className}:Test${this.testMethodName}`);
           this.failureMessages = [];
           if (this.methodTest) {
             this.run.started(this.methodTest)
@@ -143,7 +146,15 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
       refreshHistoryRootItem(this.serverName, this.namespace);
     }
 
-    // Clear reference to run (not known if this is necessary)
-    allTestRuns[this.session.configuration.testRunIndex] = undefined;
+    // Clear run record (may not be necessary, but is harmless)
+    allTestRuns[this.session.configuration.testingRunIndex] = undefined;
+  }
+
+  onError(error: Error): void {
+    //console.log(`**Erroring session ${this.session.name}: error.message=${error.message}`);
+  }
+
+  onExit(code: number | undefined, signal: string | undefined): void {
+    //console.log(`**Exiting session ${this.session.name}: code=${code}, signal=${signal}`);
   }
 }
