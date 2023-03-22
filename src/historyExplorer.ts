@@ -134,7 +134,7 @@ async function addTestCases(item: vscode.TestItem, controller: vscode.TestContro
         if (response) {
             const run = controller.createTestRun(new vscode.TestRunRequest(), `Item '${item.label}' history`, false);
             response?.data?.result?.content?.forEach(element => {
-                const child = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Name}`);
+                const child = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Name.split('.').pop()}`);
                 child.canResolveChildren = true;
                 item.children.add(child);
                 if (element.Status) {
