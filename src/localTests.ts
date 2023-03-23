@@ -88,7 +88,7 @@ export async function setupLocalTestsController() {
 
 
 export function relativeTestRoot(folder: vscode.WorkspaceFolder): string {
-  return vscode.workspace.getConfiguration('intersystems.testingManager', folder.uri).get<string>('relativeTestRoot') || 'internal/testing/unit_tests';
+  return vscode.workspace.getConfiguration('intersystems.testingManager.client', folder.uri).get<string>('relativeTestRoot') || 'internal/testing/unit_tests';
 }
 
 /* Replace root items with one item for each file-type workspace root for which a named server can be identified
