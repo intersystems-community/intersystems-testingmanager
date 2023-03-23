@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { allTestRuns, extensionId, IServerSpec, osAPI } from './extension';
 import { relativeTestRoot } from './localTests';
 import logger from './logger';
+import { makeRESTRequest } from './makeRESTRequest';
 
 export async function commonRunTestsHandler(controller: vscode.TestController, resolveItemChildren: (item: vscode.TestItem) => Promise<void>, request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
   logger.info(`commonRunTestsHandler invoked by controller id=${controller.id}`);
@@ -71,7 +72,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
     return;
   }
 
-  // Stop debugging sessions we started
+  // Arrange for cancellation to stop the debugging sessions we start
   cancellation.onCancellationRequested(() => {
     runIndices.forEach((runIndex) => {
       const session = allTestRuns[runIndex]?.debugSession;
@@ -99,7 +100,32 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       // First, clear out the server-side folder for the classes whose testmethods will be run
       const folder = vscode.workspace.getWorkspaceFolder(oneUri);
       const server = osAPI.serverForUri(oneUri);
-      const username = server.username || 'UnknownUser';
+      const serverSpec: IServerSpec = {
+        username: server.username,
+        name: server.serverName,
+        webServer: {
+          host: server.host,
+          port: server.port,
+          pathPrefix: server.pathPrefix,
+          scheme: server.scheme
+        }
+      };
+      const namespace: string = server.namespace.toUpperCase();
+      const responseCspapps = await makeRESTRequest(
+        "GET",
+        serverSpec,
+        { apiVersion: 1, namespace: "%SYS", path: "/cspapps/%SYS" }
+      );
+
+      if (!responseCspapps?.data?.result?.content?.includes("/_vscode")) {
+        const reply = await vscode.window.showErrorMessage(`A '/_vscode' web application must be configured for the %SYS namespace of server '${serverSpec.name}'. The ${namespace} namespace also requires its ^UnitTestRoot global to point to the '${namespace}/UnitTestRoot' subfolder of that web application's path.`, { modal: true }, 'Instructions');
+        if (reply === 'Instructions') {
+          vscode.commands.executeCommand('vscode.open', 'https://intersystems-community.github.io/vscode-objectscript/serverside/#configuring-storage-for-folder-specific-settings');
+        }
+        return;
+      }
+        
+      const username: string = server.username || 'UnknownUser';
       const testRoot = vscode.Uri.from({ scheme: 'isfs', authority, path: `/.vscode/UnitTestRoot/${username}` });
       try {
         // Limitation of the Atelier API means this can only delete the files, not the folders
@@ -134,17 +160,6 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       }
 
       // Finally, run the tests using the debugger API
-      const serverSpec: IServerSpec = {
-        username: server.username,
-        name: server.serverName,
-        webServer: {
-          host: server.host,
-          port: server.port,
-          pathPrefix: server.pathPrefix,
-          scheme: server.scheme
-        }
-      };
-      const namespace: string = server.namespace.toUpperCase();
       const runQualifiers = controller.id === `${extensionId}-Local` ? "" : "/noload/nodelete";
       // Run tests through the debugger but only stop at breakpoints etc if user chose "Debug Test" instead of "Run Test"
       const runIndex = allTestRuns.push(run) - 1;
