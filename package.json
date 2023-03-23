@@ -21,9 +21,6 @@
   "categories": [
     "Testing"
   ],
-	"enabledApiProposals": [
-		"testCoverage"
-  ],
   "extensionDependencies": [
     "intersystems-community.servermanager",
     "intersystems-community.vscode-objectscript"

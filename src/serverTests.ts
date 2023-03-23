@@ -66,7 +66,6 @@ async function resolveItemChildren(item: vscode.TestItem) {
         if (loadedTestController.items.size > 0) {
             loadedTestController.createRunProfile('Run Server Tests', vscode.TestRunProfileKind.Run, runTestsHandler, true);
             loadedTestController.createRunProfile('Debug Server Tests', vscode.TestRunProfileKind.Debug, runTestsHandler);
-            //loadedTestController.createRunProfile('Test Coverage', vscode.TestRunProfileKind.Coverage, runTestsHandler);
         }
         }
 }
