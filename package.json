@@ -7,7 +7,7 @@
   "description": "Manage testing on InterSystems servers.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/intersystems-community/intersystems-testingmanager"
+    "url": "https://github.com/gjsjohnmurray/intersystems-testingmanager"
   },
   "license": "MIT",
   "keywords": [
