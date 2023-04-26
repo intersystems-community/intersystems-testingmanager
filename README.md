@@ -36,26 +36,30 @@ In order to support topologies in which client-side-managed test classes have to
 
 1. Ensure your VS Code workspace specifies its server connection(s) by referencing server(s) in the `intersystems.servers` configuration object which InterSystems Server Manager maintains. For example, assuming a server named `iris231` has been defined:
 
-    - For client-side paradigm (in `settings.json`, or in `"settings"` object in `xxx.code-workspace` file):
+    - For the client-side paradigm (in `settings.json`, or in `"settings"` object in `xxx.code-workspace` file):
     ```
-        "objectscript.conn": {
-            "server": "iris231",
-            "ns": "USER",
-            "active": true
-		},
-    ```	
-    - For server-side paradigm (in `xxx.code-workspace` file):
+    "objectscript.conn": {
+        "server": "iris231",
+        "ns": "APP",
+        "active": true
+	},
+    ```
+  
+    - For the server-side paradigm (in `xxx.code-workspace` file):
     ```
     "folders": [
 		{
-			"name": "iris231:USER",
-			"uri": "isfs://iris231:user/?mapped=0"
+			"name": "iris231:APP-ISFS",
+			"uri": "isfs://iris231:app-isfs/?mapped=0"
 		}
 	],
     ```
+
 > We recommend setting the `username` property of the server definition object, and using Server Manager's secure password storage feature to hold that user's password.
 
 2. For a workspace using client-side editing, test classes are sought in `.cls` files under the `internal/testing/unit_tests` subfolder, using the conventional layout of one additional subfolder per package-name element. If your test classes are located elsewhere, use the `intersystems.testingManager.client.relativeTestRoot` setting to point there.
+
+> By setting this at the workspace level you can have different file layouts for different projects.
 
 ## Running Tests
 
