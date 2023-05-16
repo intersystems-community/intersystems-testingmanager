@@ -124,7 +124,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         }
         return;
       }
-        
+
       const username: string = server.username || 'UnknownUser';
       const testRoot = vscode.Uri.from({ scheme: 'isfs', authority, path: `/.vscode/UnitTestRoot/${username}` });
       try {
@@ -160,8 +160,10 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       }
 
       // Finally, run the tests using the debugger API
-      const runQualifiers = controller.id === `${extensionId}-Local` ? "" : "/noload/nodelete";
-      // Run tests through the debugger but only stop at breakpoints etc if user chose "Debug Test" instead of "Run Test"
+      // but only stop at breakpoints etc if user chose "Debug Test" instead of "Run Test"
+      const isClientSideMode = controller.id === `${extensionId}-Local`;
+      const isDebug = request.profile?.kind === vscode.TestRunProfileKind.Debug;
+      const runQualifiers = !isClientSideMode ? "/noload/nodelete" : isDebug ? "/noload" : "";
       const runIndex = allTestRuns.push(run) - 1;
       runIndices.push(runIndex);
 
@@ -187,7 +189,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         "testingIdBase": firstClassTestItem.id.split(":", 2).join(":")
       };
       const sessionOptions: vscode.DebugSessionOptions = {
-        noDebug: request.profile?.kind !== vscode.TestRunProfileKind.Debug,
+        noDebug: !isDebug,
         suppressDebugToolbar: request.profile?.kind !== vscode.TestRunProfileKind.Debug
       };
 
@@ -195,7 +197,41 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       // and does this from current active document, so here we make sure there's a suitable one.
       vscode.commands.executeCommand("vscode.open", oneUri, { preserveFocus: true });
 
-      // Start the debugger unless cancelled
+      // When debugging in client-side mode the classes must be loaded and compiled before the debug run happens, otherwise breakpoints don't bind
+      if (isClientSideMode && isDebug && !cancellation.isCancellationRequested) {
+
+        // Without the /debug option the classes are compiled without maps, preventing breakpoints from binding.
+        const preloadConfig = {
+          "type": "objectscript",
+          "request": "launch",
+          "name": 'LocalTests.Preload',
+          "program": `##class(%UnitTest.Manager).RunTest("${testSpec}","/nodisplay/load/debug/norun/nodelete")`,
+        };
+
+        // Prepare to detect when the preload completes
+        let sessionTerminated: () => void;
+        const listener = vscode.debug.onDidTerminateDebugSession((session) => {
+          if (session.name === 'LocalTests.Preload') {
+            sessionTerminated();
+          }
+        });
+        const sessionTerminatedPromise = new Promise<void>(resolve => sessionTerminated = resolve);
+
+        // Start the preload
+        if (!await vscode.debug.startDebugging(folder, preloadConfig, { noDebug: true, suppressDebugStatusbar: true })) {
+          listener.dispose();
+          await vscode.window.showErrorMessage(`Failed to preload client-side test classes for debugging`, { modal: true });
+          run.end();
+          allTestRuns[runIndex] = undefined;
+          return;
+        };
+
+        // Wait for it to complete
+        await sessionTerminatedPromise;
+        listener.dispose();
+      }
+
+      // Start the run unless already cancelled
       if (cancellation.isCancellationRequested || !await vscode.debug.startDebugging(folder, configuration, sessionOptions)) {
         if (!cancellation.isCancellationRequested) {
           await vscode.window.showErrorMessage(`Failed to launch testing`, { modal: true });
