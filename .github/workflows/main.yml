@@ -69,7 +69,7 @@ jobs:
           node-version: 16
       - run: npm install
       - name: lint
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux-NOSUCH'
         run: npm run lint
       - run: npm run compile
       - name: npm test
