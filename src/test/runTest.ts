@@ -12,7 +12,10 @@ async function main() {
     // Passed to --extensionTestsPath
     const extensionTestsPath = path.resolve(__dirname, "./suite/index");
 
-    const launchArgs = [];
+    const launchArgs = [
+      "--install-extension", "intersystems-community.servermanager",
+      "--install-extension", "intersystems-community.vscode-objectscript"
+    ];
 
     // Download VS Code, unzip it and run the integration test
     await runTests({ extensionDevelopmentPath, extensionTestsPath, launchArgs });
