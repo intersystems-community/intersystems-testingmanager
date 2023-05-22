@@ -1,10 +1,10 @@
 # InterSystems Testing Manager
 
-This extension uses VS Code's [Testing API](https://code.visualstudio.com/api/extension-guides/testing) to discover, run and debug unit test classes built with the [%UnitTest testing framework](https://docs.intersystems.com/irislatest/csp/docbook/DocBook.UI.Page.cls?KEY=TUNT_WhatIsPercentUnitTest) of the InterSystems IRIS platforms, plus Cach&eacute;-based predecessors supporting the `/api/atelier` REST service.
+This preview extension uses VS Code's [Testing API](https://code.visualstudio.com/api/extension-guides/testing) to discover, run and debug unit test classes built with the [%UnitTest testing framework](https://docs.intersystems.com/irislatest/csp/docbook/DocBook.UI.Page.cls?KEY=TUNT_WhatIsPercentUnitTest) of the InterSystems IRIS platforms, plus Cach&eacute;-based predecessors supporting the `/api/atelier` REST service.
 
 It augments the ObjectScript, InterSystems Language Server and Server Manager extensions, which are elements of the [InterSystems ObjectScript Extension Pack](https://marketplace.visualstudio.com/items?itemName=intersystems-community.objectscript-pack).
 
-Classes extending `%UnitTest.TestCase` are shown in the Test Explorer view, from where they can be run and any failures investigated. An additional folder in Test Explorer gives easy access to the results of recent test runs on the server.
+Classes extending `%UnitTest.TestCase` are shown in VS Code's Test Explorer view, from where they can be run and any failures investigated. An additional folder in Test Explorer gives easy access to the results of recent test runs on the server.
 
 InterSystems Testing Manager works with both of the source code location paradigms supported by the ObjectScript extension. Your unit test classes can either be mastered in VS Code's local filesystem (the 'client-side editing' paradigm) or in a server namespace (the ['server-side editing'](https://intersystems-community.github.io/vscode-objectscript/serverside) paradigm). In both cases the actual test runs occur in a server namespace.
 
@@ -77,8 +77,26 @@ When a test class is open in an editor tab it displays icons in the gutter at th
 
 The `...` menu of the Testing panel in Test Explorer includes several useful commands, including ones to collapse the tree and to clear all locally-stored test results.
 
-## Recent History
+## Recent Testing History
 
 The %UnitTest framework persists results of runs in server-side tables. The 'Recent History' root folder lets you explore the most recent ten sets of results for each server and namespace the workspace uses.
 
 Hovering on a run's folder reveals an action button which launches %UnitTest's own results browser in an external web browser.
+
+## Known Limitations
+
+This extension is a preview and has some known limitations:
+
+- The extension uses server-side REST support for debugging even when tests are not being debugged. That support is broken in InterSystems IRIS 2021.1.3, and perhaps also in earlier 2021.1.x versions.
+- It has only been tested with InterSystems IRIS instances that use the English locale. Its technique for parsing the output from %UnitTest is likely to fail with other locales.
+- The `/autoload` feature of %UnitTest is not supported. This is only relevant to the client-side paradigm.
+- The loading and deleting of unit test classes which occurs when using the client-side paradigm will raise corresponding events on any source control class that the target namespace may have been configured to use.
+
+## Feedback
+
+Initial development of this extension by [George James Software](https://georgejames.com) was sponsored by [InterSystems](https://intersystems.com).
+
+Please create issues at https://github.com/intersystems-community/intersystems-testingmanager/issues to report bugs, questions or suggestions for improvement.
+
+We also invite you to post about this extension at https://community.intersystems.com
+
