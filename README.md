@@ -67,7 +67,7 @@ VS Code provides several different ways to run tests.
 
 In the Test Explorer view expand the first root folder, which is captioned 'Local Tests' or 'Server Tests' depending on which paradigm your workspace uses.
 
-A subfolder displays for each root folder of your workspace, which may be a multi-root one. Within this you are shown the test classes. The 'Local Tests' tree uses a heirarchical structure with one subfilder per segment of the package name. The 'Server Tests' tree uses a flat structure.
+A subfolder is shown for each root folder of your workspace, which may be a multi-root one. Within this you are shown the test classes. The 'Local Tests' tree uses a hierarchical structure with one subfolder per segment of the package name. The 'Server Tests' tree uses a flat structure.
 
 At the level of an individual test class the final expansion shows a leaf for each `TestXXX` method.
 
