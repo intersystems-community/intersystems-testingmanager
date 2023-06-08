@@ -99,7 +99,7 @@ function replaceLocalRootItems(controller: vscode.TestController) {
     vscode.workspace.workspaceFolders?.forEach(folder => {
         if (folder.uri.scheme === 'file') {
             const server = osAPI.serverForUri(folder.uri);
-            if (server?.serverName && server.namespace) {
+            if (server?.namespace) {
                 const key = server.serverName + ":" + server.namespace + ":";
                 if (!rootMap.has(key)) {
                     const relativeRoot = relativeTestRoot(folder);

@@ -45,7 +45,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       if (test.uri.scheme === "file") {
         // Client-side editing, for which we will assume objectscript.conn names a server defined in `intersystems.servers`
         const conn: any = vscode.workspace.getConfiguration("objectscript", test.uri).get("conn");
-        authority = conn.server + ":" + (conn.ns as string).toLowerCase();
+        authority = (conn.server || "") + ":" + (conn.ns as string).toLowerCase();
         const folder = vscode.workspace.getWorkspaceFolder(test.uri);
         if (folder) {
           key = key.slice(folder.uri.path.length + relativeTestRoot(folder).length + 1);
@@ -89,7 +89,8 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       'Test Results',
       true
     );
-    const authority = mapInstance[0];
+    let authority = mapInstance[0];
+    let query = "";
     const mapTestClasses = mapInstance[1];
     const firstClassTestItem = Array.from(mapTestClasses.values())[0];
     const oneUri = firstClassTestItem.uri;
@@ -126,7 +127,14 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       }
 
       const username: string = server.username || 'UnknownUser';
-      const testRoot = vscode.Uri.from({ scheme: 'isfs', authority, path: `/.vscode/UnitTestRoot/${username}` });
+
+      // When client-side mode is using 'objectscript.conn.docker-compose the first piece of 'authority' is blank,
+      if (authority.startsWith(":")) {
+        const namespace = authority.slice(1).toUpperCase();
+        query = `ns=${encodeURIComponent(namespace)}`;
+        authority = folder?.name || "";
+      }
+      const testRoot = vscode.Uri.from({ scheme: 'isfs', authority, path: `/.vscode/UnitTestRoot/${username}`, query });
       try {
         // Limitation of the Atelier API means this can only delete the files, not the folders
         // but zombie folders shouldn't cause problems.
