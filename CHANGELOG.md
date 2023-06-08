@@ -1,4 +1,4 @@
-## 0.2.1 (TBA)
+## 0.2.1 (08-Jun-2023)
 * Discover client-side tests when using `objectscript.conn.docker-compose` settings (#10)
 
 ## 0.2.0 (22-May-2023)
