@@ -104,6 +104,7 @@ Hovering on a run's folder reveals an action button which launches %UnitTest's o
 This extension is a preview and has some known limitations:
 
 - The extension uses server-side REST support for debugging even when tests are not being debugged. That support is broken in InterSystems IRIS 2021.1.3, and maybe also in earlier 2021.1.x versions.
+- In client-side mode test-run results don't update the testing icons in the editor gutter or the Local Tests tree in Testing view. Workaround is to view them under the Recent History tree.
 - Debugging tests in client-side mode has issues arising from how your workspace stores your test classes outside the source tree of the classes they are testing. Please see the extension's repository (link below) and add new issues if you experience problems not already logged there.
 - The extension has only been tested with InterSystems IRIS instances that use the English locale. Its technique for parsing the output from %UnitTest is likely to fail with other locales.
 - The `/autoload` feature of %UnitTest is not supported. This is only relevant to client-side mode.
