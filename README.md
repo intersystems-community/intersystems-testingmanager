@@ -36,8 +36,8 @@ In order to support topologies in which client-side-managed test classes have to
 
 1. Ensure your VS Code workspace specifies its server connection(s) by referencing server(s) in the `intersystems.servers` configuration object which InterSystems Server Manager maintains. For example, assuming a server named `iris231` has been defined:
 
-    - For the client-side paradigm (in `settings.json`, or in `"settings"` object in `xxx.code-workspace` file):
-    ```
+    - For the **client-side** paradigm (in `settings.json`, or in `"settings"` object in `xxx.code-workspace` file):
+    ```json
     "objectscript.conn": {
         "server": "iris231",
         "ns": "APP",
@@ -45,8 +45,8 @@ In order to support topologies in which client-side-managed test classes have to
 	},
     ```
   
-    - For the server-side paradigm (in `xxx.code-workspace` file):
-    ```
+    - For the **server-side** paradigm (in `xxx.code-workspace` file):
+    ```json
     "folders": [
 		{
 			"name": "iris231:APP-ISFS",
@@ -57,6 +57,19 @@ In order to support topologies in which client-side-managed test classes have to
 
 > We recommend setting the `username` property of the server definition object, and using Server Manager's secure password storage feature to hold that user's password.
 
+> If you are editing client-side and using the `docker-compose` object within your `objectscript.conn` settings to handle dynamic assignment of the web server port at the host end, omit the `server` property. You will have to put credentials in the settings as plaintext, so this should **only** be done with well-known 'standard' ones such as shown as an example below:
+```json
+"objectscript.conn" :{
+    "ns": "APP",
+    "username": "_SYSTEM",
+    "password": "SYS",
+    "docker-compose": {
+        "service": "iris",
+        "internalPort": 52773
+    },
+    "active": true
+},
+```
 2. For a workspace using client-side editing, test classes are sought in `.cls` files under the `internal/testing/unit_tests` subfolder, using the conventional layout of one additional subfolder per package-name element. If your test classes are located elsewhere, use the `intersystems.testingManager.client.relativeTestRoot` setting to point there.
 
 > By setting this at the workspace level you can have different file layouts for different projects.
@@ -77,6 +90,9 @@ When a test class is open in an editor tab it displays icons in the gutter at th
 
 The `...` menu of the Testing panel in Test Explorer includes several useful commands, including ones to collapse the tree and to clear all locally-stored test results.
 
+## Debugging Tests
+After opening a test class, click in the gutter to set a VS Code breakpoint in the normal manner. Then launch the test-run with the Debug option on the context menu of the testing icons in the gutter.
+
 ## Recent Testing History
 
 The %UnitTest framework persists results of runs in server-side tables. The 'Recent History' root folder lets you explore the most recent ten sets of results for each server and namespace the workspace uses.
@@ -87,10 +103,12 @@ Hovering on a run's folder reveals an action button which launches %UnitTest's o
 
 This extension is a preview and has some known limitations:
 
-- The extension uses server-side REST support for debugging even when tests are not being debugged. That support is broken in InterSystems IRIS 2021.1.3, and perhaps also in earlier 2021.1.x versions.
-- It has only been tested with InterSystems IRIS instances that use the English locale. Its technique for parsing the output from %UnitTest is likely to fail with other locales.
-- The `/autoload` feature of %UnitTest is not supported. This is only relevant to the client-side paradigm.
-- The loading and deleting of unit test classes which occurs when using the client-side paradigm will raise corresponding events on any source control class that the target namespace may have been configured to use.
+- The extension uses server-side REST support for debugging even when tests are not being debugged. That support is broken in InterSystems IRIS 2021.1.3, and maybe also in earlier 2021.1.x versions.
+- In client-side mode test-run results don't update the testing icons in the editor gutter or the Local Tests tree in Testing view. Workaround is to view them under the Recent History tree.
+- Debugging tests in client-side mode has issues arising from how your workspace stores your test classes outside the source tree of the classes they are testing. Please see the extension's repository (link below) and add new issues if you experience problems not already logged there.
+- The extension has only been tested with InterSystems IRIS instances that use the English locale. Its technique for parsing the output from %UnitTest is likely to fail with other locales.
+- The `/autoload` feature of %UnitTest is not supported. This is only relevant to client-side mode.
+- The loading and deleting of unit test classes which occurs when using client-side mode will raise corresponding events on any source control class that the target namespace may have been configured to use.
 
 ## Feedback
 

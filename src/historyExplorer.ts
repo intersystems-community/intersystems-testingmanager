@@ -47,7 +47,24 @@ export async function setupHistoryExplorerController() {
 }
 
 export async function serverSpec(item: vscode.TestItem): Promise<IServerSpec | undefined> {
-    return await smAPI.getServerSpec(item.id.split(':')[0]);
+    const serverName = item.id.split(':')[0];
+    if (serverName) {
+        return await smAPI.getServerSpec(serverName);
+    }
+    else {
+        const server = osAPI.serverForUri(item.uri);
+        const serverSpec: IServerSpec = {
+            username: server.username,
+            name: server.serverName,
+            webServer: {
+              host: server.host,
+              port: server.port,
+              pathPrefix: server.pathPrefix,
+              scheme: server.scheme
+            }
+        };
+        return serverSpec;
+    }
 }
 
 async function addTestInstances(item: vscode.TestItem, controller: vscode.TestController) {
@@ -244,7 +261,7 @@ export function replaceRootItems(controller: vscode.TestController, schemes?: st
     vscode.workspace.workspaceFolders?.forEach(folder => {
       if (!schemes || schemes.includes(folder.uri.scheme)) {
         const server = osAPI.serverForUri(folder.uri);
-        if (server?.serverName && server.namespace) {
+        if (server.namespace) {
             const key = server.serverName + ":" + server.namespace.toUpperCase();
             if (!rootMap.has(key)) {
                 const item = controller.createTestItem(key, key, folder.uri);
