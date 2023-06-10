@@ -55,6 +55,7 @@ export async function serverSpec(item: vscode.TestItem): Promise<IServerSpec | u
         const server = osAPI.serverForUri(item.uri);
         const serverSpec: IServerSpec = {
             username: server.username,
+            password: server.password,
             name: server.serverName,
             webServer: {
               host: server.host,
