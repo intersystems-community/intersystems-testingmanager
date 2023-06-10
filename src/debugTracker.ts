@@ -57,7 +57,7 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
       const line: string = (message.body.output as string).replace(/\n/, '');
       this.run.appendOutput(line + '\r\n');
       if (this.className === undefined) {
-        const classBegin = line.match(/^    ([%\dA-Za-z][\dA-Za-z\.]*) begins \.\.\.$/);
+        const classBegin = line.match(/^    ([%\dA-Za-z][\dA-Za-z0-9\.]*) begins \.\.\./);
         if (classBegin) {
           this.className = classBegin[1];
         }
@@ -70,7 +70,7 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
       }
 
       if (this.testMethodName === undefined) {
-        const methodBegin = line.match(/^      Test([%\dA-Za-z][\dA-Za-z]*).* begins \.\.\.$/);
+        const methodBegin = line.match(/^      Test([\dA-Za-z0-9]+).* begins \.\.\./);
         if (methodBegin) {
           this.testMethodName = methodBegin[1];
           this.methodTest = this.methodTestMap.get(`${this.testingIdBase}:${this.className}:Test${this.testMethodName}`);
