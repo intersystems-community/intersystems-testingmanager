@@ -127,7 +127,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         return;
       }
 
-      const username: string = server.username || 'UnknownUser';
+      const username: string = (serverSpec.username || 'UnknownUser').toLowerCase();
 
       // When client-side mode is using 'objectscript.conn.docker-compose the first piece of 'authority' is blank,
       if (authority.startsWith(":")) {
@@ -182,18 +182,18 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       // Compute the testspec argument for %UnitTest.Manager.RunTest() call.
       // Typically it is a testsuite, the subfolder where we copied all the testclasses,
       // but if only a single method of a single class is being tested we will also specify testcase and testmethod.
-      let testSpec = serverSpec.username;
+      let testSpec = username;
       if (request.include?.length === 1) {
         const idParts = request.include[0].id.split(":");
         if (idParts.length === 4) {
-          testSpec = `${serverSpec.username}:${idParts[2]}:${idParts[3]}`;
+          testSpec = `${username}:${idParts[2]}:${idParts[3]}`;
         }
       }
 
       const configuration = {
         "type": "objectscript",
         "request": "launch",
-        "name": `${controller.id.split("-").pop()}Tests:${serverSpec.name}:${namespace}:${serverSpec.username}`,
+        "name": `${controller.id.split("-").pop()}Tests:${serverSpec.name}:${namespace}:${username}`,
         "program": `##class(%UnitTest.Manager).RunTest("${testSpec}","${runQualifiers}")`,
 
         // Extra properties needed by our DebugAdapterTracker
