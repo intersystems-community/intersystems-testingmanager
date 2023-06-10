@@ -1,3 +1,7 @@
+## 0.2.2 (10-Jun-2023)
+* Handle method names containing numerics.
+* Support workspaces that don't use Server Manager.
+
 ## 0.2.1 (08-Jun-2023)
 * Discover client-side tests when using `objectscript.conn.docker-compose` settings (#10)
 
