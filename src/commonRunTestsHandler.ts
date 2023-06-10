@@ -103,6 +103,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       const server = osAPI.serverForUri(oneUri);
       const serverSpec: IServerSpec = {
         username: server.username,
+        password: server.password,
         name: server.serverName,
         webServer: {
           host: server.host,
