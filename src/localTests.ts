@@ -79,11 +79,29 @@ async function runTestsHandler(request: vscode.TestRunRequest, cancellation: vsc
   await commonRunTestsHandler(localTestController, resolveItemChildren, request, cancellation);
 }
 
-export async function setupLocalTestsController() {
+export async function setupLocalTestsController(): Promise<vscode.Disposable> {
     logger.info('setupLocalTestsController invoked');
 
+    function showLoadingMessage() {
+        localTestController.items.replace([localTestController.createTestItem('-', 'loading...')]);
+    }
+
     localTestController.resolveHandler = resolveItemChildren;
-    localTestController.items.replace([localTestController.createTestItem('-', 'loading...')]);
+    showLoadingMessage();
+
+    // Add a manual Refresh button
+    localTestController.refreshHandler = (token?: vscode.CancellationToken) => {
+        showLoadingMessage();
+        replaceLocalRootItems(localTestController);
+    }
+
+    // Arrange for automatic refresh if config changes
+    return vscode.workspace.onDidChangeConfiguration(async ({ affectsConfiguration }) => {
+        if (affectsConfiguration("intersystems.testingManager.client.relativeTestRoot")) {
+            showLoadingMessage();
+            replaceLocalRootItems(localTestController);
+        }
+    });
 }
 
 

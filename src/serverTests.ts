@@ -5,7 +5,7 @@ import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
 import { commonRunTestsHandler } from './commonRunTestsHandler';
 
-async function resolveItemChildren(item: vscode.TestItem) {
+async function resolveItemChildren(item?: vscode.TestItem) {
     if (item) {
         item.busy = true;
         const spec = await serverSpec(item);
@@ -77,7 +77,17 @@ async function runTestsHandler(request: vscode.TestRunRequest, cancellation: vsc
 export async function setupServerTestsController() {
     logger.info('setupServerTestsController invoked');
 
+    function showLoadingMessage() {
+        loadedTestController.items.replace([loadedTestController.createTestItem('-', 'loading...')]);
+    }
+
     loadedTestController.resolveHandler = resolveItemChildren;
-    loadedTestController.items.replace([loadedTestController.createTestItem('-', 'loading...')]);
+    showLoadingMessage();
+
+    // Add a manual Refresh button
+    loadedTestController.refreshHandler = (token?: vscode.CancellationToken) => {
+        showLoadingMessage();
+        resolveItemChildren();
+    }
 }
 
