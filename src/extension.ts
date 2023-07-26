@@ -81,7 +81,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Other parts of this extension will use the test controllers
     localTestController = vscode.tests.createTestController(`${extensionId}-Local`, '$(folder-library) Local Tests');
     context.subscriptions.push(localTestController);
-    await setupLocalTestsController();
+    context.subscriptions.push(await setupLocalTestsController());
 
     loadedTestController = vscode.tests.createTestController(`${extensionId}-Loaded`, '$(server-environment) Server Tests');
     context.subscriptions.push(loadedTestController);

@@ -42,8 +42,7 @@ export async function setupHistoryExplorerController() {
     historyBrowserController.refreshHandler = (token?: vscode.CancellationToken) => {
         historyBrowserController.items.replace([historyBrowserController.createTestItem('-', 'loading...')]);
         replaceRootItems(historyBrowserController);
-      }
-
+    }
 }
 
 export async function serverSpec(item: vscode.TestItem): Promise<IServerSpec | undefined> {
