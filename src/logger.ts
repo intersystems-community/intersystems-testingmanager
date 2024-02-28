@@ -51,7 +51,7 @@ class VSCodeLogger implements ILogger {
 
   private _print(...args: any[]) {
     if (!this._outputChannel) {
-      this._outputChannel = vscode.window.createOutputChannel("InterSystems Server Manager");
+      this._outputChannel = vscode.window.createOutputChannel("InterSystems Testing Manager");
     }
 
     const msg = args
