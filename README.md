@@ -22,9 +22,11 @@ In order to support topologies in which client-side-managed test classes have to
 
 1. Using the server's **Management Portal**, go to **System Administration > Security > Applications > Web Applications** and look for an application named `/_vscode`.
 
-    - If it doesn't exist, follow [these instructions](https://intersystems-community.github.io/vscode-objectscript/serverside/#configuring-storage-for-folder-specific-settings) to create it. Make a note of the **Physical Path** value you entered. The convention suggested in the linked instructions is to use a `.vscode` subfolder of the server's install folder, for example `C:\InterSystems\IRIS\.vscode` on Windows.
+    - If it doesn't exist:
+      - **EITHER** use IPM (ZPM) to install [vscode-per-namespace-settings](https://openexchange.intersystems.com/package/vscode-per-namespace-settings) and then note the new `/_vscode` web application's **Physical Path**.
+      - **OR** follow [these instructions](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=GVSCO_ssworkflow#GVSCO_ssworkflow_config_folderspec). Make a note of the **Physical Path** value you entered. The convention suggested in the linked instructions is to use a `.vscode` subfolder of the server's install folder, for example `C:\InterSystems\IRIS\.vscode` on Windows.
 
-    - If the web application already exists, note its **Physical Path**.
+    - If the `/_vscode` web application already exists, note its **Physical Path**.
 
 2. Using an IRIS terminal session on the server, set the `^UnitTestRoot` global in each namespace you will run unit tests in via the extension. Start with the path string noted in the previous step, appending two subfolders to it. The first must match the uppercase namespace name and the second must be `UnitTestRoot`. For example, in the USER namespace of a default Windows install of IRIS:
     ```
