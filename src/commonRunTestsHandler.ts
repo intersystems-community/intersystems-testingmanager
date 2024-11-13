@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
-import { allTestRuns, extensionId, IServerSpec, osAPI } from './extension';
+import { IServerSpec } from "@intersystems-community/intersystems-servermanager";
+import { allTestRuns, extensionId, osAPI } from './extension';
 import { relativeTestRoot } from './localTests';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
 
 export async function commonRunTestsHandler(controller: vscode.TestController, resolveItemChildren: (item: vscode.TestItem) => Promise<void>, request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
-  logger.info(`commonRunTestsHandler invoked by controller id=${controller.id}`);
+  logger.debug(`commonRunTestsHandler invoked by controller id=${controller.id}`);
 
   const isResolvedMap = new WeakMap<vscode.TestItem, boolean>();
 

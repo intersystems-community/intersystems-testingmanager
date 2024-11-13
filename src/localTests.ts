@@ -80,7 +80,7 @@ async function runTestsHandler(request: vscode.TestRunRequest, cancellation: vsc
 }
 
 export async function setupLocalTestsController(): Promise<vscode.Disposable> {
-    logger.info('setupLocalTestsController invoked');
+    logger.debug('setupLocalTestsController invoked');
 
     function showLoadingMessage() {
         localTestController.items.replace([localTestController.createTestItem('-', 'loading...')]);

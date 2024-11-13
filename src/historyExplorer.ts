@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { historyBrowserController, IServerSpec, osAPI, smAPI } from './extension';
+import { IServerSpec } from "@intersystems-community/intersystems-servermanager";
+import { historyBrowserController, osAPI, smAPI } from './extension';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
 
@@ -11,7 +12,7 @@ interface IResult {
 const resultMap = new WeakMap<vscode.TestItem, IResult>();
 
 export async function setupHistoryExplorerController() {
-    logger.info('setupHistoryExplorerController invoked');
+    logger.debug('setupHistoryExplorerController invoked');
 
     historyBrowserController.resolveHandler = async (item) => {
         if (item) {
@@ -48,6 +49,9 @@ export async function setupHistoryExplorerController() {
 export async function serverSpec(item: vscode.TestItem): Promise<IServerSpec | undefined> {
     const serverName = item.id.split(':')[0];
     if (serverName) {
+        if (!smAPI) {
+          return undefined;
+        }
         return await smAPI.getServerSpec(serverName);
     }
     else {
