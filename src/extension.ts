@@ -57,7 +57,7 @@ export async function activate(context: vscode.ExtensionContext) {
     smAPI = await getServerManagerAPI();
     // TODO notify user if either of these returned undefined (extensionDependencies setting should prevent that, but better to be safe)
 
-    // Other parts of this extension will use the test controllers
+    // Other parts of this extension will use the test controllers we create here
     localTestController = vscode.tests.createTestController(`${extensionId}-Local`, '$(folder-library) Local Tests');
     context.subscriptions.push(localTestController);
     context.subscriptions.push(await setupLocalTestsController());
