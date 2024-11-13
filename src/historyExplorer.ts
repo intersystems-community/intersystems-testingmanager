@@ -48,6 +48,9 @@ export async function setupHistoryExplorerController() {
 export async function serverSpec(item: vscode.TestItem): Promise<IServerSpec | undefined> {
     const serverName = item.id.split(':')[0];
     if (serverName) {
+        if (!smAPI) {
+          return undefined;
+        }
         return await smAPI.getServerSpec(serverName);
     }
     else {

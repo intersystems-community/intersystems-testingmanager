@@ -1,6 +1,7 @@
 "use strict";
 
 import * as vscode from "vscode";
+import * as serverManager from "@intersystems-community/intersystems-servermanager";
 import { setupHistoryExplorerController } from "./historyExplorer";
 import { setupServerTestsController } from "./serverTests";
 import { setupLocalTestsController } from "./localTests";
@@ -11,7 +12,7 @@ export let localTestController: vscode.TestController;
 export let loadedTestController: vscode.TestController;
 export let historyBrowserController: vscode.TestController;
 export let osAPI: any;
-export let smAPI: any;
+export let smAPI: serverManager.ServerManagerAPI | undefined;
 
 export interface TestRun extends vscode.TestRun {
   debugSession?: vscode.DebugSession
@@ -40,7 +41,7 @@ export interface IJSONServerSpec {
     description?: string;
 }
 
-async function getServerManagerAPI(): Promise<any> {
+async function getServerManagerAPI(): Promise<serverManager.ServerManagerAPI | undefined> {
     const targetExtension = vscode.extensions.getExtension("intersystems-community.servermanager");
     if (!targetExtension) {
       return undefined;
