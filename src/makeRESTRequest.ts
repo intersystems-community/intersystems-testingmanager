@@ -2,7 +2,8 @@ import axios, { AxiosResponse } from "axios";
 import axiosCookieJarSupport from "axios-cookiejar-support";
 import tough = require("tough-cookie");
 import * as vscode from "vscode";
-import { IServerSpec, smAPI } from "./extension";
+import { IServerSpec } from "@intersystems-community/intersystems-servermanager";
+import { smAPI } from "./extension";
 import * as https from 'https';
 
 const AUTHENTICATION_PROVIDER = "intersystems-server-credentials";

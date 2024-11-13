@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { allTestRuns, extensionId, IServerSpec, osAPI } from './extension';
+import { IServerSpec } from "@intersystems-community/intersystems-servermanager";
+import { allTestRuns, extensionId, osAPI } from './extension';
 import { relativeTestRoot } from './localTests';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';

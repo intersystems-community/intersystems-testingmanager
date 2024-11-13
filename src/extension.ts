@@ -19,28 +19,6 @@ export interface TestRun extends vscode.TestRun {
 }
 export const allTestRuns: (TestRun | undefined)[] = [];
 
-export interface IWebServerSpec {
-    scheme?: string;
-    host: string;
-    port: number;
-    pathPrefix?: string;
-}
-
-export interface IServerSpec {
-    name: string;
-    webServer: IWebServerSpec;
-    username?: string;
-    password?: string;
-    description?: string;
-}
-
-export interface IJSONServerSpec {
-    webServer: IWebServerSpec;
-    username?: string;
-    password?: string;
-    description?: string;
-}
-
 async function getServerManagerAPI(): Promise<serverManager.ServerManagerAPI | undefined> {
     const targetExtension = vscode.extensions.getExtension("intersystems-community.servermanager");
     if (!targetExtension) {

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { historyBrowserController, IServerSpec, osAPI, smAPI } from './extension';
+import { IServerSpec } from "@intersystems-community/intersystems-servermanager";
+import { historyBrowserController, osAPI, smAPI } from './extension';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
 
