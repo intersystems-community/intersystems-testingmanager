@@ -1,7 +1,7 @@
 {
   "name": "testingmanager",
   "displayName": "InterSystems Testing Manager",
-  "version": "0.2.3-SNAPSHOT",
+  "version": "0.2.4-SNAPSHOT",
   "preview": true,
   "publisher": "intersystems-community",
   "description": "Manage testing on InterSystems servers.",
