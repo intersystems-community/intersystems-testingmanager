@@ -66,7 +66,7 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 18
       - run: npm install
       - name: lint
         if: runner.os == 'Linux-NOSUCH'
@@ -80,12 +80,12 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           npx vsce package -o ${{ steps.set-version.outputs.name }}.vsix
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4.4.2
         if: (runner.os == 'Linux') && (github.event_name != 'release')
         with:
           name: ${{ steps.set-version.outputs.name }}.vsix
           path: ${{ steps.set-version.outputs.name }}.vsix
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4.4.2
         if: runner.os == 'Linux'
         with:
           name: meta
