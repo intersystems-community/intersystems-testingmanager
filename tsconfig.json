@@ -1,7 +1,7 @@
 {
 	"compilerOptions": {
 		"module": "commonjs",
-		"target": "es2016",
+		"target": "es2019",
 		"noImplicitAny": false,
 		"removeComments": false,
 		"noUnusedLocals": true,
