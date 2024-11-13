@@ -26,7 +26,8 @@ async function main() {
       [...args, '--install-extension', 'intersystems-community.servermanager', '--install-extension', 'intersystems-community.vscode-objectscript'],
       {
         encoding: 'utf-8',
-        stdio: 'inherit'
+        stdio: 'inherit',
+        shell: process.platform === 'win32'
       }
     );
 
