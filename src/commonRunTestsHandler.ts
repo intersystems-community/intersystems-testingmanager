@@ -5,7 +5,7 @@ import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
 
 export async function commonRunTestsHandler(controller: vscode.TestController, resolveItemChildren: (item: vscode.TestItem) => Promise<void>, request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
-  logger.info(`commonRunTestsHandler invoked by controller id=${controller.id}`);
+  logger.debug(`commonRunTestsHandler invoked by controller id=${controller.id}`);
 
   const isResolvedMap = new WeakMap<vscode.TestItem, boolean>();
 

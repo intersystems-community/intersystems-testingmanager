@@ -75,7 +75,7 @@ async function runTestsHandler(request: vscode.TestRunRequest, cancellation: vsc
 }
 
 export async function setupServerTestsController() {
-    logger.info('setupServerTestsController invoked');
+    logger.debug('setupServerTestsController invoked');
 
     function showLoadingMessage() {
         loadedTestController.items.replace([loadedTestController.createTestItem('-', 'loading...')]);

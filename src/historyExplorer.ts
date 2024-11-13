@@ -11,7 +11,7 @@ interface IResult {
 const resultMap = new WeakMap<vscode.TestItem, IResult>();
 
 export async function setupHistoryExplorerController() {
-    logger.info('setupHistoryExplorerController invoked');
+    logger.debug('setupHistoryExplorerController invoked');
 
     historyBrowserController.resolveHandler = async (item) => {
         if (item) {
