@@ -19,19 +19,25 @@ async function main() {
     const vscodeExecutablePath = await downloadAndUnzipVSCode("stable");
     const [cli, ...args] = resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath);
 
-    const installExtension = (extId) =>
-      cp.spawnSync(cli, [...args, "--install-extension", extId], {
-        encoding: "utf-8",
-        stdio: "inherit",
-      });
-
     // Install dependent extensions
-    installExtension("intersystems-community.servermanager");
-    installExtension("intersystems-community.vscode-objectscript");
+    // Use cp.spawn / cp.exec for custom setup
+    cp.spawnSync(
+      cli,
+      [...args, '--install-extension', 'intersystems-community.servermanager', '--install-extension', 'intersystems-community.vscode-objectscript'],
+      {
+        encoding: 'utf-8',
+        stdio: 'inherit'
+      }
+    );
 
-    // Download VS Code, unzip it and run the integration test
-    await runTests({ extensionDevelopmentPath, extensionTestsPath });
-  } catch (err) {
+    // Run the extension test
+    await runTests({
+      // Use the specified `code` executable
+      vscodeExecutablePath,
+      extensionDevelopmentPath,
+      extensionTestsPath
+    });
+   } catch (err) {
     console.error("Failed to run tests", err);
     process.exit(1);
   }
