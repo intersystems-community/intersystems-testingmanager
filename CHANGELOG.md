@@ -1,3 +1,10 @@
+## 0.2.3 (13-Nov-2024)
+* Add manual refresh to test trees, and automatic refresh when client setting changes (#20)
+* Fix overprompting during authentication.
+* README improvements (#31)
+* Use correct output channel for debug messages.
+* Update dependencies.
+
 ## 0.2.2 (10-Jun-2023)
 * Handle method names containing numerics.
 * Support workspaces that don't use Server Manager.
