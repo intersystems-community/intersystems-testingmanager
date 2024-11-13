@@ -1,37 +1,38 @@
-import * as cp from 'child_process';
-import * as path from 'path';
+import * as cp from "child_process";
+import * as path from "path";
+
 import {
-  downloadAndUnzipVSCode,
-  resolveCliArgsFromVSCodeExecutablePath,
-  runTests
-} from '@vscode/test-electron';
+   downloadAndUnzipVSCode,
+   resolveCliArgsFromVSCodeExecutablePath,
+   runTests
+} from "@vscode/test-electron";
 
 async function main() {
   try {
-    const extensionDevelopmentPath = path.resolve(__dirname, '../../../');
-    const extensionTestsPath = path.resolve(__dirname, './suite/index');
-    const vscodeExecutablePath = await downloadAndUnzipVSCode();
-    const [cliPath, ...args] = resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath);
+    // The folder containing the Extension Manifest package.json
+    // Passed to `--extensionDevelopmentPath`
+    const extensionDevelopmentPath = path.resolve(__dirname, "../../");
 
-    // Use cp.spawn / cp.exec for custom setup
-    cp.spawnSync(
-      cliPath,
-      [...args, '--install-extension', 'intersystems-community.servermanager', '--install-extension', 'intersystems-community.vscode-objectscript'],
-      {
-        encoding: 'utf-8',
-        stdio: 'inherit'
-      }
-    );
+    // The path to the extension test script
+    // Passed to --extensionTestsPath
+    const extensionTestsPath = path.resolve(__dirname, "./suite/index");
+    const vscodeExecutablePath = await downloadAndUnzipVSCode("stable");
+    const [cli, ...args] = resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath);
 
-    // Run the extension test
-    await runTests({
-      // Use the specified `code` executable
-      vscodeExecutablePath,
-      extensionDevelopmentPath,
-      extensionTestsPath
-    });
+    const installExtension = (extId) =>
+      cp.spawnSync(cli, [...args, "--install-extension", extId], {
+        encoding: "utf-8",
+        stdio: "inherit",
+      });
+
+    // Install dependent extensions
+    installExtension("intersystems-community.servermanager");
+    installExtension("intersystems-community.vscode-objectscript");
+
+    // Download VS Code, unzip it and run the integration test
+    await runTests({ extensionDevelopmentPath, extensionTestsPath });
   } catch (err) {
-    console.error('Failed to run tests');
+    console.error("Failed to run tests", err);
     process.exit(1);
   }
 }
