@@ -31,7 +31,7 @@ jobs:
     outputs:
       taggedbranch: ${{ steps.find-branch.outputs.taggedbranch }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
       - name: Find which branch the release tag points at
         id: find-branch
@@ -125,7 +125,7 @@ jobs:
     if: github.event_name == 'release' && needs.build.outputs.taggedbranch == 'main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: main
           token: ${{ secrets.TOKEN }}
