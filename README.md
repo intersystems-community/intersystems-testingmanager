@@ -6,7 +6,7 @@ It augments the ObjectScript, InterSystems Language Server and Server Manager ex
 
 Classes extending `%UnitTest.TestCase` are shown in VS Code's Test Explorer view, from where they can be run and any failures investigated. An additional folder in Test Explorer gives easy access to the results of recent test runs on the server.
 
-InterSystems Testing Manager works with both of the source code location paradigms supported by the ObjectScript extension. Your unit test classes can either be mastered in VS Code's local filesystem (the 'client-side editing' paradigm) or in a server namespace (the ['server-side editing'](https://intersystems-community.github.io/vscode-objectscript/serverside) paradigm). In both cases the actual test runs occur in a server namespace.
+InterSystems Testing Manager works with both of the source code location paradigms supported by the ObjectScript extension. Your unit test classes can either be mastered in VS Code's local filesystem (the 'client-side editing' paradigm) or in a server namespace (the ['server-side editing'](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=GVSCO_serverflow) paradigm). In both cases the actual test runs occur in a server namespace.
 
 ![Client-side paradigm animation](images/README/Overview-Client.gif)
 
@@ -24,7 +24,7 @@ In order to support topologies in which client-side-managed test classes have to
 
     - If it doesn't exist:
       - **EITHER** use IPM (ZPM) to install [vscode-per-namespace-settings](https://openexchange.intersystems.com/package/vscode-per-namespace-settings) and then note the new `/_vscode` web application's **Physical Path**.
-      - **OR** follow [these instructions](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=GVSCO_ssworkflow#GVSCO_ssworkflow_config_folderspec). Make a note of the **Physical Path** value you entered. The convention suggested in the linked instructions is to use a `.vscode` subfolder of the server's install folder, for example `C:\InterSystems\IRIS\.vscode` on Windows.
+      - **OR** follow [these instructions](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=GVSCO_serverflow#GVSCO_serverflow_folderspec). Make a note of the **Physical Path** value you entered. The convention suggested in the linked instructions is to use a `.vscode` subfolder of the server's install folder, for example `C:\InterSystems\IRIS\.vscode` on Windows.
 
     - If the `/_vscode` web application already exists, note its **Physical Path**.
 
