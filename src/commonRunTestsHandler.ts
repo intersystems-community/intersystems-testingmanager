@@ -143,6 +143,49 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         console.log(error);
       }
 
+      // Map of uri strings checked for presence of a coverage.list file, recording the relative path of those that were found
+      const mapCoverageLists = new Map<string, string>();
+      for await (const mapInstance of mapTestClasses) {
+        const key = mapInstance[0];
+        const pathParts = key.split('/');
+        pathParts.pop();
+        const sourceBaseUri = mapInstance[1].uri?.with({ path: mapInstance[1].uri.path.split('/').slice(0, -pathParts.length).join('/') });
+        if (!sourceBaseUri) {
+          console.log(`No sourceBaseUri for key=${key}`);
+          continue;
+        }
+        while (pathParts.length > 1) {
+          const currentPath = pathParts.join('/');
+          // Check for coverage.list file here
+          const coverageListUri = sourceBaseUri.with({ path: sourceBaseUri.path.concat(`${currentPath}/coverage.list`) });
+          if (mapCoverageLists.has(coverageListUri.toString())) {
+            // Already checked this uri path, and therefore all its ancestors
+            break;
+          }
+          try {
+            await vscode.workspace.fs.stat(coverageListUri);
+            mapCoverageLists.set(coverageListUri.toString(), currentPath);
+          } catch (error) {
+            if (error.code !== vscode.FileSystemError.FileNotFound().code) {
+              console.log(`Error checking for ${coverageListUri.toString()}:`, error);
+            }
+            mapCoverageLists.set(coverageListUri.toString(), '');
+          }
+          pathParts.pop();
+        }
+      }
+      // Copy all coverage.list files found into the corresponding place under testRoot
+      for await (const [uriString, path] of mapCoverageLists) {
+        if (path.length > 0) {
+          const coverageListUri = vscode.Uri.parse(uriString, true);
+          try {
+            await vscode.workspace.fs.copy(coverageListUri, testRoot.with({ path: testRoot.path.concat(`${path}/coverage.list`) }));
+          } catch (error) {
+            console.log(`Error copying ${coverageListUri.path}:`, error);
+          }
+        }
+      }
+
       // Next, copy the classes into the folder as a package hierarchy
       for await (const mapInstance of mapTestClasses) {
         const key = mapInstance[0];
@@ -186,11 +229,12 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         }
       }
 
+      const managerClass = request.profile?.kind === vscode.TestRunProfileKind.Coverage ? "TestCoverage.Manager" : "%UnitTest.Manager";
       const configuration = {
         "type": "objectscript",
         "request": "launch",
         "name": `${controller.id.split("-").pop()}Tests:${serverSpec.name}:${namespace}:${username}`,
-        "program": `##class(%UnitTest.Manager).RunTest("${testSpec}","${runQualifiers}")`,
+        "program": `##class(${managerClass}).RunTest("${testSpec}","${runQualifiers}")`,
 
         // Extra properties needed by our DebugAdapterTracker
         "testingRunIndex": runIndex,
