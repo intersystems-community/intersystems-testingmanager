@@ -91,7 +91,6 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       true
     );
     let authority = mapInstance[0];
-    let query = "";
     const mapTestClasses = mapInstance[1];
     const firstClassTestItem = Array.from(mapTestClasses.values())[0];
     const oneUri = firstClassTestItem.uri;
@@ -132,14 +131,10 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
 
       // When client-side mode is using 'objectscript.conn.docker-compose the first piece of 'authority' is blank,
       if (authority.startsWith(":")) {
-        const namespace = authority.slice(1).toUpperCase();
-        // Arguably this should be `encodeURIComponent(namespace)` but vscode-objectscript extension doesn't decode the ns queryparam
-        // (see https://github.com/intersystems-community/vscode-objectscript/blob/978dcff2bafad6261919a13e0c69f025d6027c61/src/api/index.ts#L109)
-        // It presumably gets away with this because %-prefixed namespaces are rare, and the common one %SYS can't be mistaken for an encoded one.
-        query = `ns=${namespace}`;
         authority = folder?.name || "";
       }
-      const testRoot = vscode.Uri.from({ scheme: 'isfs', authority, path: `/.vscode/UnitTestRoot/${username}`, query });
+      // No longer rely on ISFS redirection of /.vscode because since ObjectScript v3.0 it no longer works for client-only workspaces.
+      const testRoot = vscode.Uri.from({ scheme: 'isfs', authority: authority.split(":")[0], path: `/_vscode/${namespace}/UnitTestRoot/${username}`, query: "csp&ns=%SYS" });
       try {
         // Limitation of the Atelier API means this can only delete the files, not the folders
         // but zombie folders shouldn't cause problems.
