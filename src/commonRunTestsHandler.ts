@@ -123,7 +123,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       if (!responseCspapps?.data?.result?.content?.includes("/_vscode")) {
         const reply = await vscode.window.showErrorMessage(`A '/_vscode' web application must be configured for the %SYS namespace of server '${serverSpec.name}'. The ${namespace} namespace also requires its ^UnitTestRoot global to point to the '${namespace}/UnitTestRoot' subfolder of that web application's path.`, { modal: true }, 'Instructions');
         if (reply === 'Instructions') {
-          vscode.commands.executeCommand('vscode.open', 'https://intersystems-community.github.io/vscode-objectscript/serverside/#configuring-storage-for-folder-specific-settings');
+          vscode.commands.executeCommand('vscode.open', 'https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=GVSCO_serverflow#GVSCO_serverflow_folderspec');
         }
         return;
       }
