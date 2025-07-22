@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { IServerSpec } from "@intersystems-community/intersystems-servermanager";
-import { historyBrowserController, osAPI, smAPI } from './extension';
+import { historyBrowserController, osAPI, OurTestItem, smAPI } from './extension';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
 
@@ -81,7 +81,7 @@ export async function serverSpec(item: vscode.TestItem): Promise<IServerSpec | u
     }
 }
 
-async function addTestInstances(item: vscode.TestItem, controller: vscode.TestController) {
+async function addTestInstances(item: OurTestItem, controller: vscode.TestController) {
     item.busy = true;
     const spec = await serverSpec(item);
     const namespace = item.id.split(':')[1];
@@ -99,7 +99,7 @@ async function addTestInstances(item: vscode.TestItem, controller: vscode.TestCo
                 path: `${spec.webServer.pathPrefix || ""}/csp/sys/%UnitTest.Portal.Indices.cls`,
             });
             response?.data?.result?.content?.forEach(element => {
-                const child = controller.createTestItem(
+                const child: OurTestItem = controller.createTestItem(
                     `${item.id}:${element.InstanceIndex}`,
                     `${element.DateTime}`,
                     portalUri.with({ query: `Index=${element.InstanceIndex}&$NAMESPACE=${namespace}` })
@@ -107,6 +107,7 @@ async function addTestInstances(item: vscode.TestItem, controller: vscode.TestCo
                 child.sortText = (1e12 - element.InstanceIndex).toString().padStart(12, "0");
                 child.description = `run ${element.InstanceIndex}`;
                 child.canResolveChildren = true;
+                child.supportsCoverage = item.supportsCoverage;
                 item.children.add(child);
             });
         }
@@ -114,7 +115,7 @@ async function addTestInstances(item: vscode.TestItem, controller: vscode.TestCo
     item.busy = false;
 }
 
-async function addTestSuites(item: vscode.TestItem, controller: vscode.TestController) {
+async function addTestSuites(item: OurTestItem, controller: vscode.TestController) {
     const spec = await serverSpec(item);
     const parts = item.id.split(':');
     const namespace = parts[1];
@@ -132,8 +133,9 @@ async function addTestSuites(item: vscode.TestItem, controller: vscode.TestContr
         if (response) {
             const run = controller.createTestRun(new vscode.TestRunRequest(), `Item '${item.label}' history`, false);
             response?.data?.result?.content?.forEach(element => {
-                const child = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Name}`);
+                const child: OurTestItem = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Name}`);
                 child.canResolveChildren = true;
+                child.supportsCoverage = item.supportsCoverage;
                 item.children.add(child);
                 if (element.Status) {
                     run.passed(child, element.Duration * 1000);
@@ -147,7 +149,7 @@ async function addTestSuites(item: vscode.TestItem, controller: vscode.TestContr
     }
 }
 
-async function addTestCases(item: vscode.TestItem, controller: vscode.TestController) {
+async function addTestCases(item: OurTestItem, controller: vscode.TestController) {
     const spec = await serverSpec(item);
     const parts = item.id.split(':');
     const namespace = parts[1];
@@ -165,8 +167,9 @@ async function addTestCases(item: vscode.TestItem, controller: vscode.TestContro
         if (response) {
             const run = controller.createTestRun(new vscode.TestRunRequest(), `Item '${item.label}' history`, false);
             response?.data?.result?.content?.forEach(element => {
-                const child = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Name.split('.').pop()}`);
+                const child: OurTestItem = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Name.split('.').pop()}`);
                 child.canResolveChildren = true;
+                child.supportsCoverage = item.supportsCoverage;
                 item.children.add(child);
                 if (element.Status) {
                     run.passed(child, element.Duration * 1000);
@@ -180,7 +183,7 @@ async function addTestCases(item: vscode.TestItem, controller: vscode.TestContro
     }
 }
 
-async function addTestMethods(item: vscode.TestItem, controller: vscode.TestController) {
+async function addTestMethods(item: OurTestItem, controller: vscode.TestController) {
     const spec = await serverSpec(item);
     const parts = item.id.split(':');
     const namespace = parts[1];
@@ -200,8 +203,9 @@ async function addTestMethods(item: vscode.TestItem, controller: vscode.TestCont
             response?.data?.result?.content?.forEach(element => {
                 const methodName: string = element.Name;
                 // We drop the first 4 characters of the method name because they should always be "Test"
-                const child = controller.createTestItem(`${item.id}:${element.ID}`, `${methodName.slice(4)}`);
+                const child: OurTestItem = controller.createTestItem(`${item.id}:${element.ID}`, `${methodName.slice(4)}`);
                 child.canResolveChildren = true;
+                child.supportsCoverage = item.supportsCoverage;
                 item.children.add(child);
 
                 // Remember result fields so they can be reinstated when the descendant Asserts are 'run'
@@ -218,7 +222,7 @@ async function addTestMethods(item: vscode.TestItem, controller: vscode.TestCont
     }
 }
 
-async function addTestAsserts(item: vscode.TestItem, controller: vscode.TestController) {
+async function addTestAsserts(item: OurTestItem, controller: vscode.TestController) {
     const spec = await serverSpec(item);
     const parts = item.id.split(':');
     const namespace = parts[1];
@@ -248,10 +252,11 @@ async function addTestAsserts(item: vscode.TestItem, controller: vscode.TestCont
             }
 
             response?.data?.result?.content?.forEach(element => {
-                const child = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Action}`);
+                const child: OurTestItem = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Action}`);
                 child.sortText = `${element.Counter.toString().padStart(element.MaxCounter.toString().length, "0")}`;
                 child.description = element.Description;
                 child.canResolveChildren = false;
+                child.supportsCoverage = item.supportsCoverage;
                 item.children.add(child);
                 if (element.Status) {
                     run.passed(child);
@@ -278,8 +283,9 @@ export function replaceRootItems(controller: vscode.TestController, schemes?: st
         if (server.namespace) {
             const key = server.serverName + ":" + server.namespace.toUpperCase();
             if (!rootMap.has(key)) {
-                const item = controller.createTestItem(key, key, folder.uri);
+                const item: OurTestItem = controller.createTestItem(key, key, folder.uri);
                 item.canResolveChildren = true;
+                item.supportsCoverage = true; // TODO - check target namespace supports coverage
                 rootMap.set(key, item);
             }
         }

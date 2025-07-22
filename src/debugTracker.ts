@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { allTestRuns, loadedTestController, localTestController, TestRun } from './extension';
+import { allTestRuns, loadedTestController, localTestController, OurTestRun } from './extension';
 import { refreshHistoryRootItem } from './historyExplorer';
 import { processCoverage } from './coverage';
 
@@ -9,7 +9,7 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
   private serverName: string;
   private namespace: string;
   private testController: vscode.TestController
-  private run?: TestRun;
+  private run?: OurTestRun;
   private testingIdBase: string;
   private className?: string;
   private testMethodName?: string;

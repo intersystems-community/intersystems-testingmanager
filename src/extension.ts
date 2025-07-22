@@ -14,10 +14,15 @@ export let historyBrowserController: vscode.TestController;
 export let osAPI: any;
 export let smAPI: serverManager.ServerManagerAPI | undefined;
 
-export interface TestRun extends vscode.TestRun {
+export interface OurTestRun extends vscode.TestRun {
   debugSession?: vscode.DebugSession
 }
-export const allTestRuns: (TestRun | undefined)[] = [];
+
+export interface OurTestItem extends vscode.TestItem {
+  supportsCoverage?: boolean
+}
+
+export const allTestRuns: (OurTestRun | undefined)[] = [];
 
 async function getServerManagerAPI(): Promise<serverManager.ServerManagerAPI | undefined> {
     const targetExtension = vscode.extensions.getExtension("intersystems-community.servermanager");

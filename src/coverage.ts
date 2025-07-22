@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import { makeRESTRequest } from './makeRESTRequest';
 import logger from './logger';
-import { TestRun } from './extension';
+import { OurTestRun } from './extension';
 import { serverSpecForUri } from './historyExplorer';
 import { OurFileCoverage } from './ourFileCoverage';
 
-export async function processCoverage(serverName: string, namespace: string, run: TestRun): Promise<void> {
+export async function processCoverage(serverName: string, namespace: string, run: OurTestRun): Promise<void> {
   const uri = run.debugSession?.workspaceFolder?.uri;
   const coverageIndex = run.debugSession?.configuration.coverageIndex;
   logger.debug(`processCoverage: serverName=${serverName}, namespace=${namespace}, uri=${uri?.toString()}, coverageIndex=${coverageIndex}`);
@@ -22,7 +22,7 @@ export async function processCoverage(serverName: string, namespace: string, run
   }
 }
 
-export async function getFileCoverageResults(folderUri: vscode.Uri, namespace: string, run: number): Promise<vscode.FileCoverage[]> {
+export async function getFileCoverageResults(folderUri: vscode.Uri, namespace: string, coverageIndex: number): Promise<vscode.FileCoverage[]> {
   const serverSpec = serverSpecForUri(folderUri);
   const fileCoverageResults: vscode.FileCoverage[] = [];
   if (!serverSpec) {
@@ -36,7 +36,7 @@ export async function getFileCoverageResults(folderUri: vscode.Uri, namespace: s
     { apiVersion: 1, namespace, path: "/action/query" },
     {
       query: "SELECT cu.Hash, cu.Name Name, cu.Type, abcu.ExecutableLines, CoveredLines, ExecutableMethods, CoveredMethods, RtnLine FROM TestCoverage_Data_Aggregate.ByCodeUnit abcu, TestCoverage_Data.CodeUnit cu WHERE abcu.CodeUnit = cu.Hash AND Run = ? ORDER BY Name",
-      parameters: [run],
+      parameters: [coverageIndex],
     },
   );
   if (response) {
@@ -56,7 +56,7 @@ export async function getFileCoverageResults(folderUri: vscode.Uri, namespace: s
       logger.debug(`getFileCoverageResults element: ${JSON.stringify(element)}`);
       logger.debug(`getFileCoverageResults fileUri: ${fileUri.toString()}`);
       const fileCoverage = new OurFileCoverage(
-        run,
+        coverageIndex,
         element.Hash,
         fileUri,
         new vscode.TestCoverageCount(element.CoveredLines, element.ExecutableLines),

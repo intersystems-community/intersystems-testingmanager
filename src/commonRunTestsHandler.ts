@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { IServerSpec } from "@intersystems-community/intersystems-servermanager";
-import { allTestRuns, extensionId, osAPI } from './extension';
+import { allTestRuns, extensionId, osAPI, OurTestItem } from './extension';
 import { relativeTestRoot } from './localTests';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
@@ -15,14 +15,29 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
   // We don't yet support running only some TestXXX methods in a testclass
   const mapAuthorities = new Map<string, Map<string, vscode.TestItem>>();
   const runIndices: number[] =[];
-  const queue: vscode.TestItem[] = [];
+  const queue: OurTestItem[] = [];
+  const coverageRequest = request.profile?.kind === vscode.TestRunProfileKind.Coverage;
 
   // Loop through all included tests, or all known tests, and add them to our queue
   if (request.include) {
-    request.include.forEach(test => queue.push(test));
+    request.include.forEach((test: OurTestItem) => {
+      if (!coverageRequest || test.supportsCoverage) {
+        queue.push(test);
+      }
+    });
   } else {
     // Run was launched from controller's root level
-    controller.items.forEach(test => queue.push(test));
+    controller.items.forEach((test: OurTestItem) => {
+      if (!coverageRequest || test.supportsCoverage) {
+        queue.push(test);
+      }
+    });
+  }
+
+  if (coverageRequest && !queue.length) {
+    // No tests to run, but coverage requested
+    vscode.window.showErrorMessage("Coverage support not available on target environment(s).", { modal: true });
+    return;
   }
 
   // Process every test that was queued. Recurse down to leaves (testmethods) and build a map of their parents (classes)
@@ -70,7 +85,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
 
   if (mapAuthorities.size === 0) {
     // Nothing included
-    vscode.window.showWarningMessage(`Empty test run`);
+    vscode.window.showErrorMessage("Empty test run.", { modal: true });
     return;
   }
 
@@ -231,7 +246,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       }
 
       let managerClass = "%UnitTest.Manager";
-      if (request.profile?.kind === vscode.TestRunProfileKind.Coverage) {
+      if (coverageRequest) {
         managerClass = "TestCoverage.Manager";
         request.profile.loadDetailedCoverage = async (testRun, fileCoverage, token) => {
           return fileCoverage instanceof OurFileCoverage ? fileCoverage.loadDetailedCoverage() : [];
