@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { allTestRuns, loadedTestController, localTestController, TestRun } from './extension';
 import { refreshHistoryRootItem } from './historyExplorer';
+import { processCoverage } from './coverage';
 
 export class DebugTracker implements vscode.DebugAdapterTracker {
 
@@ -56,6 +57,14 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
       }
       const line: string = (message.body.output as string).replace(/\n/, '');
       this.run.appendOutput(line + '\r\n');
+
+      const coverageMatch = line.match(/^(?:http|https):\/\/.*\/TestCoverage\.UI\.AggregateResultViewer\.cls\?Index=(\d+)/);
+      if (coverageMatch && this.run.debugSession) {
+        const coverageIndex = Number(coverageMatch[1]);
+        this.run.debugSession.configuration.coverageIndex = coverageIndex;
+        console.log(`Coverage index set to ${coverageIndex}`);
+      }
+
       if (this.className === undefined) {
         const classBegin = line.match(/^    ([%\dA-Za-z][\dA-Za-z0-9\.]*) begins \.\.\./);
         if (classBegin) {
@@ -139,10 +148,13 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
     //console.log(`**Starting session ${this.session.name}, run.name = ${this.run?.name}`);
   }
 
-  onWillStopSession(): void {
-    //console.log(`**Stopping session ${this.session.name}`);
+  async onWillStopSession(): Promise<void> {
+    console.log(`**Stopping session ${this.session.name}`);
     if (this.run) {
+      await processCoverage(this.serverName, this.namespace, this.run);
+      //console.log(`**processCoverage done`);
       this.run.end();
+      //console.log(`**run.end() done`);
       refreshHistoryRootItem(this.serverName, this.namespace);
     }
 

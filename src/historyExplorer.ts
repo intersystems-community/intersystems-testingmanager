@@ -46,6 +46,24 @@ export async function setupHistoryExplorerController() {
     }
 }
 
+export function serverSpecForUri(uri: vscode.Uri): IServerSpec | undefined {
+    const server = osAPI.serverForUri(uri);
+    if (server) {
+        return {
+            username: server.username,
+            password: server.password,
+            name: server.serverName,
+            webServer: {
+                host: server.host,
+                port: server.port,
+                pathPrefix: server.pathPrefix,
+                scheme: server.scheme
+            }
+        };
+    }
+    return undefined;
+}
+
 export async function serverSpec(item: vscode.TestItem): Promise<IServerSpec | undefined> {
     const serverName = item.id.split(':')[0];
     if (serverName) {
@@ -54,20 +72,12 @@ export async function serverSpec(item: vscode.TestItem): Promise<IServerSpec | u
         }
         return await smAPI.getServerSpec(serverName);
     }
+    else if (item.uri){
+        return serverSpecForUri(item.uri);
+    }
     else {
-        const server = osAPI.serverForUri(item.uri);
-        const serverSpec: IServerSpec = {
-            username: server.username,
-            password: server.password,
-            name: server.serverName,
-            webServer: {
-              host: server.host,
-              port: server.port,
-              pathPrefix: server.pathPrefix,
-              scheme: server.scheme
-            }
-        };
-        return serverSpec;
+        logger.error(`serverSpec: No serverName or URI for item ${item.id}`);
+        return undefined;
     }
 }
 

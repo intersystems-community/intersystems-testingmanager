@@ -4,6 +4,7 @@ import { allTestRuns, extensionId, osAPI } from './extension';
 import { relativeTestRoot } from './localTests';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
+import { OurFileCoverage } from './ourFileCoverage';
 
 export async function commonRunTestsHandler(controller: vscode.TestController, resolveItemChildren: (item: vscode.TestItem) => Promise<void>, request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
   logger.debug(`commonRunTestsHandler invoked by controller id=${controller.id}`);
@@ -229,7 +230,13 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         }
       }
 
-      const managerClass = request.profile?.kind === vscode.TestRunProfileKind.Coverage ? "TestCoverage.Manager" : "%UnitTest.Manager";
+      let managerClass = "%UnitTest.Manager";
+      if (request.profile?.kind === vscode.TestRunProfileKind.Coverage) {
+        managerClass = "TestCoverage.Manager";
+        request.profile.loadDetailedCoverage = async (testRun, fileCoverage, token) => {
+          return fileCoverage instanceof OurFileCoverage ? fileCoverage.loadDetailedCoverage() : [];
+        };
+      }
       const configuration = {
         "type": "objectscript",
         "request": "launch",
