@@ -1,3 +1,6 @@
+## 2.0.0 (23-Jul-2025)
+* Use [Test Coverage Tool](https://openexchange.intersystems.com/package/Test-Coverage-Tool) to present coverage information (#24)
+
 ## 0.2.3 (13-Nov-2024)
 * Add manual refresh to test trees, and automatic refresh when client setting changes (#20)
 * Fix overprompting during authentication.

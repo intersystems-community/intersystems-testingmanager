@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
 import { commonRunTestsHandler } from './commonRunTestsHandler';
-import { localTestController, osAPI } from './extension';
+import { localTestController, OurTestItem } from './extension';
 import logger from './logger';
+import { resolveServerSpecAndNamespace, supportsCoverage } from './utils';
 
 const isResolvedMap = new WeakMap<vscode.TestItem, boolean>();
 
-async function resolveItemChildren(item: vscode.TestItem) {
+async function resolveItemChildren(item: OurTestItem) {
     if (item) {
         isResolvedMap.set(item, true);
         const itemUri = item.uri;
@@ -15,15 +16,17 @@ async function resolveItemChildren(item: vscode.TestItem) {
                 const contents = await vscode.workspace.fs.readDirectory(itemUri);
                 contents.filter((entry) => entry[1] === vscode.FileType.Directory).forEach((entry) => {
                     const name = entry[0];
-                    const child = localTestController.createTestItem(`${item.id}${name}.`, name, itemUri.with({path: `${itemUri.path}/${name}`}));
+                    const child: OurTestItem = localTestController.createTestItem(`${item.id}${name}.`, name, itemUri.with({path: `${itemUri.path}/${name}`}));
                     child.canResolveChildren = true;
+                        child.supportsCoverage = item.supportsCoverage;
                     item.children.add(child);
                 });
                 contents.filter((entry) => entry[1] === vscode.FileType.File).forEach((entry) => {
                     const name = entry[0];
                     if (name.endsWith('.cls')) {
-                        const child = localTestController.createTestItem(`${item.id}${name.slice(0, name.length - 4)}`, name, itemUri.with({path: `${itemUri.path}/${name}`}));
+                        const child: OurTestItem = localTestController.createTestItem(`${item.id}${name.slice(0, name.length - 4)}`, name, itemUri.with({path: `${itemUri.path}/${name}`}));
                         child.canResolveChildren = true;
+                        child.supportsCoverage = item.supportsCoverage;
                         item.children.add(child);
                     }
                 });
@@ -46,9 +49,10 @@ async function resolveItemChildren(item: vscode.TestItem) {
                             const match = lineText.match(/^Method Test(.+)\(/);
                             if (match) {
                                 const testName = match[1];
-                                const child = localTestController.createTestItem(`${item.id}:Test${testName}`, testName, itemUri);
+                                const child: OurTestItem = localTestController.createTestItem(`${item.id}:Test${testName}`, testName, itemUri);
                                 child.range = new vscode.Range(new vscode.Position(index, 0), new vscode.Position(index + 1, 0))
                                 child.canResolveChildren = false;
+                                child.supportsCoverage = item.supportsCoverage;
                                 item.children.add(child);
                                 if (!child.parent) {
                                   console.log(`*** BUG - child (id=${child.id}) has no parent after item.children.add(child) where item.id=${item.id}`);
@@ -67,10 +71,11 @@ async function resolveItemChildren(item: vscode.TestItem) {
     }
     else {
         // Root items
-        replaceLocalRootItems(localTestController);
+        await replaceLocalRootItems(localTestController);
         if (localTestController.items.size > 0) {
             localTestController.createRunProfile('Run Local Tests', vscode.TestRunProfileKind.Run, runTestsHandler, true);
             localTestController.createRunProfile('Debug Local Tests', vscode.TestRunProfileKind.Debug, runTestsHandler);
+            localTestController.createRunProfile('Run Local Tests with Coverage', vscode.TestRunProfileKind.Coverage, runTestsHandler);
         }
     }
 }
@@ -111,24 +116,25 @@ export function relativeTestRoot(folder: vscode.WorkspaceFolder): string {
 
 /* Replace root items with one item for each file-type workspace root for which a named server can be identified
 */
-function replaceLocalRootItems(controller: vscode.TestController) {
+async function replaceLocalRootItems(controller: vscode.TestController) {
     const rootItems: vscode.TestItem[] = [];
     const rootMap = new Map<string, vscode.TestItem>();
-    vscode.workspace.workspaceFolders?.forEach(folder => {
+    for await (const folder of vscode.workspace.workspaceFolders || []) {
         if (folder.uri.scheme === 'file') {
-            const server = osAPI.serverForUri(folder.uri);
-            if (server?.namespace) {
-                const key = server.serverName + ":" + server.namespace + ":";
+            const { serverSpec, namespace } = await resolveServerSpecAndNamespace(folder.uri);
+            if (serverSpec && namespace) {
+                const key = serverSpec.name + ":" + namespace + ":";
                 if (!rootMap.has(key)) {
                     const relativeRoot = relativeTestRoot(folder);
-                    const item = controller.createTestItem(key, folder.name, folder.uri.with({path: `${folder.uri.path}/${relativeRoot}`}));
+                    const item: OurTestItem = controller.createTestItem(key, folder.name, folder.uri.with({path: `${folder.uri.path}/${relativeRoot}`}));
                     item.description = relativeRoot;
                     item.canResolveChildren = true;
+                    item.supportsCoverage = await supportsCoverage(folder);
                     rootMap.set(key, item);
                 }
             }
         }
-    });
+    }
     rootMap.forEach(item => rootItems.push(item));
     controller.items.replace(rootItems);
 }

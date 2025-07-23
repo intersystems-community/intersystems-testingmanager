@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import { IServerSpec } from "@intersystems-community/intersystems-servermanager";
-import { allTestRuns, extensionId, osAPI } from './extension';
+import { allTestRuns, extensionId, osAPI, OurTestItem } from './extension';
 import { relativeTestRoot } from './localTests';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
+import { OurFileCoverage } from './ourFileCoverage';
 
 export async function commonRunTestsHandler(controller: vscode.TestController, resolveItemChildren: (item: vscode.TestItem) => Promise<void>, request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
   logger.debug(`commonRunTestsHandler invoked by controller id=${controller.id}`);
@@ -14,14 +15,29 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
   // We don't yet support running only some TestXXX methods in a testclass
   const mapAuthorities = new Map<string, Map<string, vscode.TestItem>>();
   const runIndices: number[] =[];
-  const queue: vscode.TestItem[] = [];
+  const queue: OurTestItem[] = [];
+  const coverageRequest = request.profile?.kind === vscode.TestRunProfileKind.Coverage;
 
   // Loop through all included tests, or all known tests, and add them to our queue
   if (request.include) {
-    request.include.forEach(test => queue.push(test));
+    request.include.forEach((test: OurTestItem) => {
+      if (!coverageRequest || test.supportsCoverage) {
+        queue.push(test);
+      }
+    });
   } else {
     // Run was launched from controller's root level
-    controller.items.forEach(test => queue.push(test));
+    controller.items.forEach((test: OurTestItem) => {
+      if (!coverageRequest || test.supportsCoverage) {
+        queue.push(test);
+      }
+    });
+  }
+
+  if (coverageRequest && !queue.length) {
+    // No tests to run, but coverage requested
+    vscode.window.showErrorMessage("[Test Coverage Tool](https://openexchange.intersystems.com/package/Test-Coverage-Tool) not found.", );
+    return;
   }
 
   // Process every test that was queued. Recurse down to leaves (testmethods) and build a map of their parents (classes)
@@ -69,7 +85,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
 
   if (mapAuthorities.size === 0) {
     // Nothing included
-    vscode.window.showWarningMessage(`Empty test run`);
+    vscode.window.showErrorMessage("Empty test run.", { modal: true });
     return;
   }
 
@@ -143,6 +159,49 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         console.log(error);
       }
 
+      // Map of uri strings checked for presence of a coverage.list file, recording the relative path of those that were found
+      const mapCoverageLists = new Map<string, string>();
+      for await (const mapInstance of mapTestClasses) {
+        const key = mapInstance[0];
+        const pathParts = key.split('/');
+        pathParts.pop();
+        const sourceBaseUri = mapInstance[1].uri?.with({ path: mapInstance[1].uri.path.split('/').slice(0, -pathParts.length).join('/') });
+        if (!sourceBaseUri) {
+          console.log(`No sourceBaseUri for key=${key}`);
+          continue;
+        }
+        while (pathParts.length > 1) {
+          const currentPath = pathParts.join('/');
+          // Check for coverage.list file here
+          const coverageListUri = sourceBaseUri.with({ path: sourceBaseUri.path.concat(`${currentPath}/coverage.list`) });
+          if (mapCoverageLists.has(coverageListUri.toString())) {
+            // Already checked this uri path, and therefore all its ancestors
+            break;
+          }
+          try {
+            await vscode.workspace.fs.stat(coverageListUri);
+            mapCoverageLists.set(coverageListUri.toString(), currentPath);
+          } catch (error) {
+            if (error.code !== vscode.FileSystemError.FileNotFound().code) {
+              console.log(`Error checking for ${coverageListUri.toString()}:`, error);
+            }
+            mapCoverageLists.set(coverageListUri.toString(), '');
+          }
+          pathParts.pop();
+        }
+      }
+      // Copy all coverage.list files found into the corresponding place under testRoot
+      for await (const [uriString, path] of mapCoverageLists) {
+        if (path.length > 0) {
+          const coverageListUri = vscode.Uri.parse(uriString, true);
+          try {
+            await vscode.workspace.fs.copy(coverageListUri, testRoot.with({ path: testRoot.path.concat(`${path}/coverage.list`) }));
+          } catch (error) {
+            console.log(`Error copying ${coverageListUri.path}:`, error);
+          }
+        }
+      }
+
       // Next, copy the classes into the folder as a package hierarchy
       for await (const mapInstance of mapTestClasses) {
         const key = mapInstance[0];
@@ -186,11 +245,18 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         }
       }
 
+      let managerClass = "%UnitTest.Manager";
+      if (coverageRequest) {
+        managerClass = "TestCoverage.Manager";
+        request.profile.loadDetailedCoverage = async (testRun, fileCoverage, token) => {
+          return fileCoverage instanceof OurFileCoverage ? fileCoverage.loadDetailedCoverage() : [];
+        };
+      }
       const configuration = {
         "type": "objectscript",
         "request": "launch",
         "name": `${controller.id.split("-").pop()}Tests:${serverSpec.name}:${namespace}:${username}`,
-        "program": `##class(%UnitTest.Manager).RunTest("${testSpec}","${runQualifiers}")`,
+        "program": `##class(${managerClass}).RunTest("${testSpec}","${runQualifiers}")`,
 
         // Extra properties needed by our DebugAdapterTracker
         "testingRunIndex": runIndex,

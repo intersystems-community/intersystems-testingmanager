@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-import { loadedTestController } from './extension';
+import { loadedTestController, OurTestItem } from './extension';
 import { replaceRootItems, serverSpec } from './historyExplorer';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
 import { commonRunTestsHandler } from './commonRunTestsHandler';
 
-async function resolveItemChildren(item?: vscode.TestItem) {
+async function resolveItemChildren(item?: OurTestItem) {
     if (item) {
         item.busy = true;
         const spec = await serverSpec(item);
@@ -23,7 +23,7 @@ async function resolveItemChildren(item?: vscode.TestItem) {
                 if (response) {
                     for await (const element of response?.data?.result?.content) {
                         const fullClassName: string = element.Name;
-                        const tiClass = loadedTestController.createTestItem(
+                        const tiClass: OurTestItem = loadedTestController.createTestItem(
                             `${item.id}:${fullClassName}`,
                             fullClassName,
                             vscode.Uri.from({
@@ -33,6 +33,7 @@ async function resolveItemChildren(item?: vscode.TestItem) {
                                 query: item.uri?.query
                             })
                         );
+                        tiClass.supportsCoverage = item.supportsCoverage;
                         const symbols = await vscode.commands.executeCommand<vscode.ProviderResult<vscode.SymbolInformation[] | vscode.DocumentSymbol[]>>('vscode.executeDocumentSymbolProvider', tiClass.uri);
                         if (symbols?.length === 1 && symbols[0].kind === vscode.SymbolKind.Class) {
                             const symbol = symbols[0];
@@ -40,12 +41,13 @@ async function resolveItemChildren(item?: vscode.TestItem) {
                             (symbol as vscode.DocumentSymbol).children.forEach(childSymbol => {
                                 if (childSymbol.kind === vscode.SymbolKind.Method && childSymbol.name.startsWith("Test")) {
                                     const testMethodName = childSymbol.name;
-                                    const tiMethod = loadedTestController.createTestItem(
+                                    const tiMethod: OurTestItem = loadedTestController.createTestItem(
                                         `${tiClass.id}:${testMethodName}`,
                                         testMethodName.slice(4),
                                         tiClass.uri
                                     );
                                     tiMethod.range = childSymbol.range;
+                                    tiMethod.supportsCoverage = tiClass.supportsCoverage;
                                     tiClass.children.add(tiMethod);
                                 }
                             });
@@ -66,6 +68,7 @@ async function resolveItemChildren(item?: vscode.TestItem) {
         if (loadedTestController.items.size > 0) {
             loadedTestController.createRunProfile('Run Server Tests', vscode.TestRunProfileKind.Run, runTestsHandler, true);
             loadedTestController.createRunProfile('Debug Server Tests', vscode.TestRunProfileKind.Debug, runTestsHandler);
+            loadedTestController.createRunProfile('Run Server Tests with Coverage', vscode.TestRunProfileKind.Coverage, runTestsHandler);
         }
         }
 }

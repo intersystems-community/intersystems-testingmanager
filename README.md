@@ -1,6 +1,10 @@
 # InterSystems Testing Manager
 
-This preview extension uses VS Code's [Testing API](https://code.visualstudio.com/api/extension-guides/testing) to discover, run and debug unit test classes built with the [%UnitTest testing framework](https://docs.intersystems.com/irislatest/csp/docbook/DocBook.UI.Page.cls?KEY=TUNT_WhatIsPercentUnitTest) of the InterSystems IRIS platforms, plus Cach&eacute;-based predecessors supporting the `/api/atelier` REST service.
+> **New in Version 2.0 - Test Coverage**
+> 
+> The v2.0 release has been entered into the [InterSystems Developer Tools Contest 2025](https://openexchange.intersystems.com/contest/42). Please support it with your vote between 28th July and 3rd August.
+
+This extension uses VS Code's [Testing API](https://code.visualstudio.com/api/extension-guides/testing) to discover, run and debug unit test classes built with the [%UnitTest testing framework](https://docs.intersystems.com/irislatest/csp/docbook/DocBook.UI.Page.cls?KEY=TUNT_WhatIsPercentUnitTest) of the InterSystems IRIS platforms, plus Cach&eacute;-based predecessors supporting the `/api/atelier` REST service.
 
 It augments the ObjectScript, InterSystems Language Server and Server Manager extensions, which are elements of the [InterSystems ObjectScript Extension Pack](https://marketplace.visualstudio.com/items?itemName=intersystems-community.objectscript-pack).
 
@@ -15,6 +19,12 @@ _Client-side editing workspace_
 ![Server-side paradigm animation](images/README/Overview-Server.gif)
 
 _Server-side editing workspace_
+
+When used alongside [Test Coverage Tool](https://openexchange.intersystems.com/package/Test-Coverage-Tool) this extension presents coverage inside VS Code:
+
+![Code coverage example](images/README/Coverage-example.png)
+
+_Code coverage example showing coverage of Test Coverage Tool's own unit tests_
 
 In order to support topologies in which client-side-managed test classes have to be run in the namespace of a remote server, this extension uses the `/_vscode` web application on the test-running server, no matter whether local or remote.
 
@@ -34,6 +44,8 @@ In order to support topologies in which client-side-managed test classes have to
     ```
 > If you previously used the `%UnitTest` framework in a namespace, be aware that you are probably replacing an existing value. Consider taking a note of that in case you need to revert.
 
+3. If you want to gather and display test coverage data, set up [Test Coverage Tool](https://openexchange.intersystems.com/package/Test-Coverage-Tool) in the namespace(s) where your tests will execute.
+
 ## Workspace Preparations
 
 For a workspace using client-side editing, test classes are by default sought in `.cls` files under the `internal/testing/unit_tests` subfolder, using the conventional layout of one additional subfolder per package-name element. If your test classes are located elsewhere, use the `intersystems.testingManager.client.relativeTestRoot` setting to point there.
@@ -50,7 +62,7 @@ A subfolder is shown for each root folder of your workspace, which may be a mult
 
 At the level of an individual test class the final expansion shows a leaf for each `TestXXX` method.
 
-Hovering over any level of a tests tree will reveal action buttons that run all the tests from this level down. The 'Run' button does so without stopping at any breakpoints, in contrast to the 'Debug' button. At class or method level a 'Go to Test' button opens the class code and positions the cursor appropriately. At higher levels this button navigates to Explorer View.
+Hovering over any level of a tests tree will reveal action buttons that run all the tests from this level down. The 'Run Test' button does so without stopping at any breakpoints, in contrast to the 'Debug Test' button. At class or method level a 'Go to Test' button opens the class code and positions the cursor appropriately. At higher levels this button navigates to Explorer View.
 
 When a test class is open in an editor tab it displays icons in the gutter at the top of the class and at the start of each test method. These show the outcome of the most recent run, if any, and can be clicked to perform testing operations.
 
@@ -58,6 +70,9 @@ The `...` menu of the Testing panel in Test Explorer includes several useful com
 
 ## Debugging Tests
 After opening a test class, click in the gutter to set a VS Code breakpoint in the normal manner. Then launch the test-run with the Debug option on the context menu of the testing icons in the gutter.
+
+## Obtaining Test Coverage Information
+Use the 'Run with Coverage' option to submit your tests to [Test Coverage Tool](https://openexchange.intersystems.com/package/Test-Coverage-Tool). When the run finishes the 'TEST COVERAGE' view will appear, usually below the 'TEST EXPLORER'. Use this to discover what proportion of executable code lines were covered by the most recent coverage run. Open sources to see color markers on line numbers showing covered (green) and not covered (red) lines. Learn more in the [VS Code documentation](https://code.visualstudio.com/docs/debugtest/testing#_test-coverage).
 
 ## Recent Testing History
 
