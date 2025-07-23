@@ -20,6 +20,12 @@ _Client-side editing workspace_
 
 _Server-side editing workspace_
 
+When used alongside [Test Coverage Tool](https://openexchange.intersystems.com/package/Test-Coverage-Tool) this extension presents coverage inside VS Code:
+
+![Code coverage example](images/README/Coverage-example.png)
+
+_Code coverage example showing coverage of Test Coverage Tool's own unit tests_
+
 In order to support topologies in which client-side-managed test classes have to be run in the namespace of a remote server, this extension uses the `/_vscode` web application on the test-running server, no matter whether local or remote.
 
 ## Server Preparations
