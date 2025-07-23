@@ -36,13 +36,21 @@ export async function supportsCoverage(folder: vscode.WorkspaceFolder): Promise<
     return false; // No server spec means we can't check coverage support
   }
   logger.debug(`Checking coverage support for namespace: ${namespace}`);
-  const response = await makeRESTRequest(
+  let response = await makeRESTRequest(
     "HEAD",
     serverSpec,
     { apiVersion: 1, namespace, path: "/doc/TestCoverage.Data.CodeUnit.cls" }
   );
   if (response?.status !== 200) {
     return false;
+  }
+  response = await makeRESTRequest(
+    "HEAD",
+    serverSpec,
+    { apiVersion: 1, namespace, path: "/doc/TestCoverage.UI.VSCodeUtils.cls" }
+  );
+  if (response?.status === 200) {
+    return true;
   }
 
   return await createSQLUtilFunctions(serverSpec, namespace);
@@ -52,7 +60,7 @@ async function createSQLUtilFunctions(serverSpec: IServerSpec, namespace: string
   logger.debug(`Creating SQL Util functions for namespace: ${namespace}`);
 
   const functionDDL = `
-CREATE OR REPLACE FUNCTION fnVSCodeInt8Bitstring(
+CREATE FUNCTION fnVSCodeInt8Bitstring(
   bitstring VARCHAR(32767)
 )
   FOR TestCoverage.UI.VSCodeUtils

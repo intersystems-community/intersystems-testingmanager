@@ -285,7 +285,7 @@ export function replaceRootItems(controller: vscode.TestController, schemes?: st
             if (!rootMap.has(key)) {
                 const item: OurTestItem = controller.createTestItem(key, key, folder.uri);
                 item.canResolveChildren = true;
-                item.supportsCoverage = true; // TODO - check target namespace supports coverage
+                item.supportsCoverage = false;
                 rootMap.set(key, item);
             }
         }

@@ -36,7 +36,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
 
   if (coverageRequest && !queue.length) {
     // No tests to run, but coverage requested
-    vscode.window.showErrorMessage("Coverage support not available on target environment(s).", { modal: true });
+    vscode.window.showErrorMessage("[Test Coverage Tool](https://openexchange.intersystems.com/package/Test-Coverage-Tool) not found.", );
     return;
   }
 

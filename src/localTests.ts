@@ -75,15 +75,7 @@ async function resolveItemChildren(item: OurTestItem) {
         if (localTestController.items.size > 0) {
             localTestController.createRunProfile('Run Local Tests', vscode.TestRunProfileKind.Run, runTestsHandler, true);
             localTestController.createRunProfile('Debug Local Tests', vscode.TestRunProfileKind.Debug, runTestsHandler);
-            let supportsCoverage = false;
-            localTestController.items.forEach((item: OurTestItem) => {
-                if (item.supportsCoverage) {
-                    supportsCoverage = true;
-                };
-            });
-            if (supportsCoverage) {
-                localTestController.createRunProfile('Run Local Tests with Coverage', vscode.TestRunProfileKind.Coverage, runTestsHandler);
-            }
+            localTestController.createRunProfile('Run Local Tests with Coverage', vscode.TestRunProfileKind.Coverage, runTestsHandler);
         }
     }
 }

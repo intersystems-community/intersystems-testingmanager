@@ -93,21 +93,27 @@ export class OurFileCoverage extends vscode.FileCoverage {
       serverSpec,
       { apiVersion: 1, namespace, path: "/action/query" },
       {
-        query: "SELECT element_key Line, LineToMethodMap Method FROM TestCoverage_Data.CodeUnit_LineToMethodMap WHERE CodeUnit = ? ORDER BY Line",
+        query: "SELECT element_key StartLine, LineToMethodMap Method FROM TestCoverage_Data.CodeUnit_LineToMethodMap WHERE CodeUnit = ? ORDER BY StartLine",
         parameters: [this.codeUnit],
       },
     );
     if (response) {
+      let previousMethod = "";
+      let previousStartLine = 0;
       response?.data?.result?.content?.forEach(element => {
-        logger.debug(`getFileCoverageResults element: ${JSON.stringify(element)}`);
-        if (element.Executable == '0') {
-          logger.debug(`Skipping non-executable line: ${JSON.stringify(element)}`);
-          return;
+        if (previousMethod && previousStartLine) {
+          const start = new vscode.Position(Number(previousStartLine) - 1, 0);
+          const end = new vscode.Position(Number(element.StartLine) - 2, Number.MAX_VALUE);
+          detailedCoverage.push(new vscode.DeclarationCoverage(previousMethod, true, new vscode.Range(start, end)));
         }
-        const range = new vscode.Range(new vscode.Position(Number(element.LineNumber) - 1, 0), new vscode.Position(Number(element.LineNumber) - 1, Number.MAX_VALUE));
-        const statementCoverage = new vscode.StatementCoverage(element.Covered == '1', range);
-        //detailedCoverage.push(statementCoverage);
+        previousMethod = element.Method;
+        previousStartLine = Number(element.StartLine);
       });
+      if (previousMethod && previousStartLine) {
+        const start = new vscode.Position(Number(previousStartLine) - 1, 0);
+        const end = new vscode.Position(Number.MAX_VALUE, Number.MAX_VALUE);
+        detailedCoverage.push(new vscode.DeclarationCoverage(previousMethod, true, new vscode.Range(start, end)));
+      }
     }
     return detailedCoverage;
   }
