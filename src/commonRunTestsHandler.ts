@@ -5,6 +5,7 @@ import { relativeTestRoot } from './localTests';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
 import { OurFileCoverage } from './ourFileCoverage';
+import { SQL_FN_RUNTESTPROXY, UTIL_CLASSNAME } from './utils';
 
 export async function commonRunTestsHandler(controller: vscode.TestController, resolveItemChildren: (item: vscode.TestItem) => Promise<void>, request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
   logger.debug(`commonRunTestsHandler invoked by controller id=${controller.id}`);
@@ -116,7 +117,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
 
       // First, clear out the server-side folder for the classes whose testmethods will be run
       const folder = vscode.workspace.getWorkspaceFolder(oneUri);
-      const server = osAPI.serverForUri(oneUri);
+      const server = await osAPI.asyncServerForUri(oneUri);
       const serverSpec: IServerSpec = {
         username: server.username,
         password: server.password,
@@ -245,26 +246,31 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         }
       }
 
-      let managerClass = "%UnitTest.Manager";
+      let program = `##class(%UnitTest.Manager).RunTest("${testSpec}","${runQualifiers}")`;
       if (coverageRequest) {
-        managerClass = "TestCoverage.Manager";
-        request.profile.loadDetailedCoverage = async (testRun, fileCoverage, token) => {
+        program = `##class(${UTIL_CLASSNAME}).${SQL_FN_RUNTESTPROXY}("${testSpec}","${runQualifiers}",2)`;
+        request.profile.loadDetailedCoverage = async (_testRun, fileCoverage, _token) => {
           return fileCoverage instanceof OurFileCoverage ? fileCoverage.loadDetailedCoverage() : [];
+        };
+        request.profile.loadDetailedCoverageForTest = async (_testRun, fileCoverage, fromTestItem, _token) => {
+          return fileCoverage instanceof OurFileCoverage ? fileCoverage.loadDetailedCoverage(fromTestItem) : [];
         };
       }
       const configuration = {
-        "type": "objectscript",
-        "request": "launch",
-        "name": `${controller.id.split("-").pop()}Tests:${serverSpec.name}:${namespace}:${username}`,
-        "program": `##class(${managerClass}).RunTest("${testSpec}","${runQualifiers}")`,
+        type: "objectscript",
+        request: "launch",
+        name: `${controller.id.split("-").pop()}Tests:${serverSpec.name}:${namespace}:${username}`,
+        program,
 
         // Extra properties needed by our DebugAdapterTracker
-        "testingRunIndex": runIndex,
-        "testingIdBase": firstClassTestItem.id.split(":", 2).join(":")
+        testingRunIndex: runIndex,
+        testingIdBase: firstClassTestItem.id.split(":", 2).join(":")
       };
       const sessionOptions: vscode.DebugSessionOptions = {
         noDebug: !isDebug,
-        suppressDebugToolbar: request.profile?.kind !== vscode.TestRunProfileKind.Debug
+        suppressDebugToolbar: request.profile?.kind !== vscode.TestRunProfileKind.Debug,
+        suppressDebugView: request.profile?.kind !== vscode.TestRunProfileKind.Debug,
+        testRun: run,
       };
 
       // ObjectScript debugger's initializeRequest handler needs to identify target server and namespace

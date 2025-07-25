@@ -3,22 +3,23 @@ import logger from './logger';
 import { IServerSpec } from '@intersystems-community/intersystems-servermanager';
 import { makeRESTRequest } from './makeRESTRequest';
 import { osAPI } from './extension';
+import { SQL_FN_INT8BITSTRING } from './utils';
 
 export class OurFileCoverage extends vscode.FileCoverage {
 
   public readonly codeUnit: string;
   private coverageIndex: number;
 
-  constructor(coverageIndex: number, codeUnit: string, uri: vscode.Uri, statementCoverage: vscode.TestCoverageCount, branchCoverage?: vscode.TestCoverageCount, declarationCoverage?: vscode.TestCoverageCount) {
-    super(uri, statementCoverage, branchCoverage, declarationCoverage);
+  constructor(coverageIndex: number, codeUnit: string, uri: vscode.Uri, statementCoverage: vscode.TestCoverageCount, branchCoverage?: vscode.TestCoverageCount, declarationCoverage?: vscode.TestCoverageCount, includesTests?: vscode.TestItem[]) {
+    super(uri, statementCoverage, branchCoverage, declarationCoverage, includesTests);
     this.coverageIndex = coverageIndex;
     this.codeUnit = codeUnit;
   }
 
-  async loadDetailedCoverage(): Promise<vscode.FileCoverageDetail[]> {
+  async loadDetailedCoverage(fromTestItem?: vscode.TestItem): Promise<vscode.FileCoverageDetail[]> {
     logger.debug(`loadDetailedCoverage invoked for ${this.codeUnit} (${this.uri.toString()})`);
     const detailedCoverage: vscode.FileCoverageDetail[] = [];
-    const server = osAPI.serverForUri(this.uri);
+    const server = await osAPI.asyncServerForUri(this.uri);
     const serverSpec: IServerSpec = {
       username: server.username,
       password: server.password,
@@ -56,13 +57,14 @@ export class OurFileCoverage extends vscode.FileCoverage {
       });
     }
 
+    const testPath = fromTestItem ? serverSpec?.username?.toLowerCase() + '\\' + fromTestItem.id.split(':')[2].split('.').slice(0,-1).join('\\') + ':' + fromTestItem.id.split(':')[2]: 'all tests';
     response = await makeRESTRequest(
       "POST",
       serverSpec,
       { apiVersion: 1, namespace, path: "/action/query" },
       {
-        query: "SELECT TestCoverage_UI.fnVSCodeInt8Bitstring(cu.ExecutableLines) i8bsExecutableLines, TestCoverage_UI.fnVSCodeInt8Bitstring(cov.CoveredLines) i8bsCoveredLines FROM TestCoverage_Data.CodeUnit cu, TestCoverage_Data.Coverage cov WHERE cu.Hash = cov.Hash AND Run = ? AND cu.Hash = ? AND TestPath = 'all tests'",
-        parameters: [this.coverageIndex, this.codeUnit],
+        query: `SELECT TestCoverage_UI.${SQL_FN_INT8BITSTRING}(cu.ExecutableLines) i8bsExecutableLines, TestCoverage_UI.${SQL_FN_INT8BITSTRING}(cov.CoveredLines) i8bsCoveredLines FROM TestCoverage_Data.CodeUnit cu, TestCoverage_Data.Coverage cov WHERE cu.Hash = cov.Hash AND Run = ? AND cu.Hash = ? AND TestPath = ?`,
+        parameters: [this.coverageIndex, this.codeUnit, testPath],
       },
     );
     if (response) {

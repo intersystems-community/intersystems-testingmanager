@@ -24,6 +24,9 @@ export interface OurTestItem extends vscode.TestItem {
 
 export const allTestRuns: (OurTestRun | undefined)[] = [];
 
+// Array indexed by workspaceFolder index, each element holding a map from classname ('P1.P2.C') to TestItem
+export const workspaceFolderTestClasses: Map<string, OurTestItem>[] = [];
+
 async function getServerManagerAPI(): Promise<serverManager.ServerManagerAPI | undefined> {
     const targetExtension = vscode.extensions.getExtension("intersystems-community.servermanager");
     if (!targetExtension) {
@@ -61,6 +64,14 @@ export async function activate(context: vscode.ExtensionContext) {
     osAPI = await getObjectScriptAPI();
     smAPI = await getServerManagerAPI();
     // TODO notify user if either of these returned undefined (extensionDependencies setting should prevent that, but better to be safe)
+
+
+    // TODO handle changes to workspace structure, e.g. workspaceFolder added or removed
+    vscode.workspace.workspaceFolders?.forEach((folder, index) => {
+      // Initialize the map for this workspace folder's test class items
+      const newLength = workspaceFolderTestClasses.push(new Map<string, OurTestItem>());
+      console.log(`Initialized workspaceFolderTestClasses[${index}] with length ${newLength}`);
+    });
 
     // Other parts of this extension will use the test controllers we create here
     localTestController = vscode.tests.createTestController(`${extensionId}-Local`, '$(folder-library) Local Tests');

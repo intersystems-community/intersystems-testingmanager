@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { commonRunTestsHandler } from './commonRunTestsHandler';
-import { localTestController, OurTestItem } from './extension';
+import { localTestController, OurTestItem, workspaceFolderTestClasses } from './extension';
 import logger from './logger';
 import { resolveServerSpecAndNamespace, supportsCoverage } from './utils';
 
@@ -11,6 +11,7 @@ async function resolveItemChildren(item: OurTestItem) {
         isResolvedMap.set(item, true);
         const itemUri = item.uri;
         if (itemUri) {
+            const folderIndex = vscode.workspace.getWorkspaceFolder(itemUri)?.index || 0;
             item.busy = true;
             try {
                 const contents = await vscode.workspace.fs.readDirectory(itemUri);
@@ -28,6 +29,9 @@ async function resolveItemChildren(item: OurTestItem) {
                         child.canResolveChildren = true;
                         child.supportsCoverage = item.supportsCoverage;
                         item.children.add(child);
+                        const fullClassName = child.id.split(':')[2];
+                        console.log(`workspaceFolderTestClasses.length=${workspaceFolderTestClasses.length}, index=${folderIndex}`);
+                        workspaceFolderTestClasses[folderIndex].set(fullClassName, child);
                     }
                 });
             } catch (error) {
@@ -121,6 +125,7 @@ async function replaceLocalRootItems(controller: vscode.TestController) {
     const rootMap = new Map<string, vscode.TestItem>();
     for await (const folder of vscode.workspace.workspaceFolders || []) {
         if (folder.uri.scheme === 'file') {
+            workspaceFolderTestClasses[folder.index].clear();
             const { serverSpec, namespace } = await resolveServerSpecAndNamespace(folder.uri);
             if (serverSpec && namespace) {
                 const key = serverSpec.name + ":" + namespace + ":";

@@ -46,8 +46,8 @@ export async function setupHistoryExplorerController() {
     }
 }
 
-export function serverSpecForUri(uri: vscode.Uri): IServerSpec | undefined {
-    const server = osAPI.serverForUri(uri);
+export async function serverSpecForUri(uri: vscode.Uri): Promise<IServerSpec | undefined> {
+    const server = await osAPI.asyncServerForUri(uri);
     if (server) {
         return {
             username: server.username,
@@ -70,7 +70,7 @@ export async function serverSpec(item: vscode.TestItem): Promise<IServerSpec | u
         if (!smAPI) {
           return undefined;
         }
-        return await smAPI.getServerSpec(serverName);
+        return smAPI.getServerSpec(serverName);
     }
     else if (item.uri){
         return serverSpecForUri(item.uri);
@@ -131,20 +131,13 @@ async function addTestSuites(item: OurTestItem, controller: vscode.TestControlle
             },
         );
         if (response) {
-            const run = controller.createTestRun(new vscode.TestRunRequest(), `Item '${item.label}' history`, false);
             response?.data?.result?.content?.forEach(element => {
-                const child: OurTestItem = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Name}`);
+                const child: OurTestItem = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Name}`, item.uri);
+                child.description = element.Status.toString();
                 child.canResolveChildren = true;
                 child.supportsCoverage = item.supportsCoverage;
                 item.children.add(child);
-                if (element.Status) {
-                    run.passed(child, element.Duration * 1000);
-                }
-                else {
-                    run.failed(child, new vscode.TestMessage(element.ErrorDescription), element.Duration * 1000);
-                }
             });
-            run.end();
         }
     }
 }
@@ -165,20 +158,13 @@ async function addTestCases(item: OurTestItem, controller: vscode.TestController
             },
         );
         if (response) {
-            const run = controller.createTestRun(new vscode.TestRunRequest(), `Item '${item.label}' history`, false);
             response?.data?.result?.content?.forEach(element => {
-                const child: OurTestItem = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Name.split('.').pop()}`);
+                const child: OurTestItem = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Name.split('.').pop()}`, item.uri);
+                child.description = element.Status.toString();
                 child.canResolveChildren = true;
                 child.supportsCoverage = item.supportsCoverage;
                 item.children.add(child);
-                if (element.Status) {
-                    run.passed(child, element.Duration * 1000);
-                }
-                else {
-                    run.failed(child, new vscode.TestMessage(element.ErrorDescription), element.Duration * 1000);
-                }
             });
-            run.end();
         }
     }
 }
@@ -199,25 +185,18 @@ async function addTestMethods(item: OurTestItem, controller: vscode.TestControll
             },
         );
         if (response) {
-            const run = controller.createTestRun(new vscode.TestRunRequest(), `Item '${item.label}' history`, false);
             response?.data?.result?.content?.forEach(element => {
                 const methodName: string = element.Name;
                 // We drop the first 4 characters of the method name because they should always be "Test"
-                const child: OurTestItem = controller.createTestItem(`${item.id}:${element.ID}`, `${methodName.slice(4)}`);
+                const child: OurTestItem = controller.createTestItem(`${item.id}:${element.ID}`, `${methodName.slice(4)}`, item.uri);
+                child.description = element.Status.toString();
                 child.canResolveChildren = true;
                 child.supportsCoverage = item.supportsCoverage;
                 item.children.add(child);
 
                 // Remember result fields so they can be reinstated when the descendant Asserts are 'run'
                 resultMap.set(child, { status: element.Status, errorDescription: element.ErrorDescription, duration: element.Duration });
-                if (element.Status) {
-                    run.passed(child, element.Duration * 1000);
-                }
-                else {
-                    run.failed(child, new vscode.TestMessage(element.ErrorDescription), element.Duration * 1000);
-                }
             });
-            run.end();
         }
     }
 }
@@ -238,35 +217,14 @@ async function addTestAsserts(item: OurTestItem, controller: vscode.TestControll
             },
         );
         if (response) {
-            const run = controller.createTestRun(new vscode.TestRunRequest(), `Item '${item.label}' history`, false);
-
-            // Prevent this level's duration from being blanked out because of children's (absent) durations
-            const itemResult = resultMap.get(item);
-            if (itemResult) {
-                if (itemResult.status) {
-                    run.passed(item, itemResult.duration * 1000);
-                }
-                else {
-                    run.failed(item, new vscode.TestMessage(itemResult.errorDescription || "(No error description)"), itemResult.duration * 1000);
-                }
-            }
-
             response?.data?.result?.content?.forEach(element => {
-                const child: OurTestItem = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Action}`);
+                const child: OurTestItem = controller.createTestItem(`${item.id}:${element.ID}`, `${element.Action}`, item.uri);
                 child.sortText = `${element.Counter.toString().padStart(element.MaxCounter.toString().length, "0")}`;
-                child.description = element.Description;
+                child.description = `${element.Status} ${element.Description}`;
                 child.canResolveChildren = false;
                 child.supportsCoverage = item.supportsCoverage;
                 item.children.add(child);
-                if (element.Status) {
-                    run.passed(child);
-                }
-                else {
-                    run.failed(child, new vscode.TestMessage(element.Description));
-                }
             });
-
-            run.end();
         }
     }
 }

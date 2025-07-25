@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { makeRESTRequest } from './makeRESTRequest';
 import logger from './logger';
-import { OurTestRun } from './extension';
+import { OurTestRun, workspaceFolderTestClasses } from './extension';
 import { serverSpecForUri } from './historyExplorer';
 import { OurFileCoverage } from './ourFileCoverage';
 
@@ -23,11 +23,10 @@ export async function processCoverage(serverName: string, namespace: string, run
 }
 
 export async function getFileCoverageResults(folderUri: vscode.Uri, namespace: string, coverageIndex: number): Promise<vscode.FileCoverage[]> {
-  const serverSpec = serverSpecForUri(folderUri);
-  const fileCoverageResults: vscode.FileCoverage[] = [];
+  const serverSpec = await serverSpecForUri(folderUri);
   if (!serverSpec) {
     logger.error(`No server spec found for URI: ${folderUri.toString()}`);
-    return fileCoverageResults;
+    return [];
   }
   const exportSettings = vscode.workspace.getConfiguration('objectscript.export', folderUri);
   const response = await makeRESTRequest(
@@ -35,36 +34,47 @@ export async function getFileCoverageResults(folderUri: vscode.Uri, namespace: s
     serverSpec,
     { apiVersion: 1, namespace, path: "/action/query" },
     {
-      query: "SELECT cu.Hash, cu.Name Name, cu.Type, abcu.ExecutableLines, CoveredLines, ExecutableMethods, CoveredMethods, RtnLine FROM TestCoverage_Data_Aggregate.ByCodeUnit abcu, TestCoverage_Data.CodeUnit cu WHERE abcu.CodeUnit = cu.Hash AND Run = ? ORDER BY Name",
+      query: "SELECT cu.Hash Hash, cu.Name Name, cu.Type, abcu.ExecutableLines, abcu.CoveredLines, ExecutableMethods, CoveredMethods, TestPath FROM TestCoverage_Data_Aggregate.ByCodeUnit abcu, TestCoverage_Data.CodeUnit cu, TestCoverage_Data.Coverage cov WHERE abcu.CodeUnit = cu.Hash AND cov.Hash = cu.Hash AND abcu.Run = ? AND cov.Run = abcu.Run ORDER BY Hash",
       parameters: [coverageIndex],
     },
   );
+  const mapFileCoverages: Map<string, OurFileCoverage> = new Map();
   if (response) {
     response?.data?.result?.content?.forEach(element => {
-      const fileType = element.Type.toLowerCase();
-      let pathPrefix = ''
-      if (folderUri.scheme === 'file') {
-        pathPrefix = exportSettings.folder;
-        if (pathPrefix && !pathPrefix.startsWith('/')) {
-          pathPrefix = `/${pathPrefix}`;
+      let fileCoverage = mapFileCoverages.get(element.Hash);
+      if (!fileCoverage) {
+        const fileType = element.Type.toLowerCase();
+        let pathPrefix = ''
+        if (folderUri.scheme === 'file') {
+          pathPrefix = exportSettings.folder;
+          if (pathPrefix && !pathPrefix.startsWith('/')) {
+            pathPrefix = `/${pathPrefix}`;
+          }
+          if (exportSettings.atelier) {
+            pathPrefix += '/' + fileType;
+          }
         }
-        if (exportSettings.atelier) {
-          pathPrefix += '/' + fileType;
+        const fileUri = folderUri.with({ path: folderUri.path.concat(pathPrefix, `/${element.Name.replace(/\./g, '/')}.${fileType}`) });
+        fileCoverage = new OurFileCoverage(
+          coverageIndex,
+          element.Hash,
+          fileUri,
+          new vscode.TestCoverageCount(element.CoveredLines, element.ExecutableLines),
+          undefined,
+          new vscode.TestCoverageCount(element.CoveredMethods, element.ExecutableMethods)
+        );
+      }
+      const testPath: string = element.TestPath || 'all tests';
+      if (testPath !== 'all tests') {
+        console.log(`Find TestItem matching test path ${testPath}`);
+        const className = testPath.split(':')[1];
+        const testItem = workspaceFolderTestClasses[vscode.workspace.getWorkspaceFolder(folderUri)?.index || 0].get(className);
+        if (testItem) {
+          fileCoverage.includesTests?.push(testItem);
         }
       }
-      const fileUri = folderUri.with({ path: folderUri.path.concat(pathPrefix, `/${element.Name.replace(/\./g, '/')}.${fileType}`) });
-      logger.debug(`getFileCoverageResults element: ${JSON.stringify(element)}`);
-      logger.debug(`getFileCoverageResults fileUri: ${fileUri.toString()}`);
-      const fileCoverage = new OurFileCoverage(
-        coverageIndex,
-        element.Hash,
-        fileUri,
-        new vscode.TestCoverageCount(element.CoveredLines, element.ExecutableLines),
-        undefined,
-        new vscode.TestCoverageCount(element.CoveredMethods, element.ExecutableMethods)
-      );
-      fileCoverageResults.push(fileCoverage);
+      mapFileCoverages.set(element.Hash, fileCoverage);
     });
   }
-  return fileCoverageResults;
+  return Array.from(mapFileCoverages.values());
 }
