@@ -57,7 +57,14 @@ export class OurFileCoverage extends vscode.FileCoverage {
       });
     }
 
-    const testPath = fromTestItem ? serverSpec?.username?.toLowerCase() + '\\' + fromTestItem.id.split(':')[2].split('.').slice(0,-1).join('\\') + ':' + fromTestItem.id.split(':')[2]: 'all tests';
+    let testPath = 'all tests';
+    if (fromTestItem && serverSpec.username) {
+      // If a specific test item is provided, use its ID to determine the test path we want data from
+      const dottedClassname = fromTestItem.id.split(':')[3];
+      testPath = serverSpec.username.toLowerCase() + '\\' + dottedClassname.split('.').slice(0,-1).join('\\') + ':' + dottedClassname;
+    }
+
+    // Get the coverage results
     response = await makeRESTRequest(
       "POST",
       serverSpec,

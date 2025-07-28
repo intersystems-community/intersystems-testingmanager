@@ -17,6 +17,7 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
   private methodTestMap: Map<string, vscode.TestItem>;
   private methodTest?: vscode.TestItem;
   private failureMessages: vscode.TestMessage[] = [];
+  private skippedMessages: vscode.TestMessage[] = [];
 
   constructor(session: vscode.DebugSession) {
     this.session = session;
@@ -62,7 +63,7 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
       if (coverageMatch && this.run.debugSession) {
         const coverageIndex = Number(coverageMatch[1]);
         this.run.debugSession.configuration.coverageIndex = coverageIndex;
-        console.log(`Coverage index set to ${coverageIndex}`);
+        //console.log(`Coverage index set to ${coverageIndex}`);
       }
 
       if (this.className === undefined) {
@@ -99,6 +100,11 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
                 this.run.passed(this.methodTest, this.testDuration)
                 break;
 
+              case 'skipped':
+                // Pending https://github.com/microsoft/vscode/issues/133198 we can't do anything with this.skippedMessages
+                this.run.skipped(this.methodTest);
+                break;
+
               case 'failed':
                 this.run.failed(this.methodTest, this.failureMessages.length > 0 ? this.failureMessages : { message: 'Failed with no messages' }, this.testDuration);
                 break;
@@ -111,6 +117,7 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
           this.testDuration = undefined;
           this.methodTest = undefined;
           this.failureMessages = [];
+          this.skippedMessages = [];
           return;
         }
       }
@@ -129,13 +136,21 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
             //console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName ${macroName}, outcome 'failed', message=${message}`);
             this.failureMessages.push({ message: message });
           } else {
-            const logMessageMatch = line.match(/^        LogMessage:(.*)$/);
-            if (logMessageMatch) {
-              const message = logMessageMatch[1];
-              //console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName LogMessage, message=${message}`);
-              const duration = message.match(/^Duration of execution: (\d*\.\d+) sec.$/);
-              if (duration) {
-                this.testDuration = + duration[1] * 1000;
+            const assertSkippedMatch = line.match(/^        (Test\w+):(.*) \(skipped\)$/);
+            if (assertSkippedMatch) {
+              //const macroName = assertSkippedMatch[1];
+              const message = assertSkippedMatch[2];
+              //console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName ${macroName}, outcome 'skipped', message=${message}`);
+              this.skippedMessages.push({ message: message });
+            } else {
+              const logMessageMatch = line.match(/^        LogMessage:(.*)$/);
+              if (logMessageMatch) {
+                const message = logMessageMatch[1];
+                //console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName LogMessage, message=${message}`);
+                const duration = message.match(/^Duration of execution: (\d*\.\d+) sec.$/);
+                if (duration) {
+                  this.testDuration = + duration[1] * 1000;
+                }
               }
             }
           }

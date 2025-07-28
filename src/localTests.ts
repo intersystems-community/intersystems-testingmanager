@@ -9,15 +9,16 @@ const isResolvedMap = new WeakMap<vscode.TestItem, boolean>();
 async function resolveItemChildren(item: OurTestItem) {
     if (item) {
         isResolvedMap.set(item, true);
-        const itemUri = item.uri;
+        const itemUri = item.ourUri;
         if (itemUri) {
-            const folderIndex = vscode.workspace.getWorkspaceFolder(itemUri)?.index || 0;
+            const folderIndex = item.id.split(':')[0]; //vscode.workspace.getWorkspaceFolder(itemUri)?.index || 0;
             item.busy = true;
             try {
                 const contents = await vscode.workspace.fs.readDirectory(itemUri);
                 contents.filter((entry) => entry[1] === vscode.FileType.Directory).forEach((entry) => {
                     const name = entry[0];
-                    const child: OurTestItem = localTestController.createTestItem(`${item.id}${name}.`, name, itemUri.with({path: `${itemUri.path}/${name}`}));
+                    const child: OurTestItem = localTestController.createTestItem(`${item.id}${name}.`, name);
+                    child.ourUri = itemUri.with({path: `${itemUri.path}/${name}`});
                     child.canResolveChildren = true;
                         child.supportsCoverage = item.supportsCoverage;
                     item.children.add(child);
@@ -26,11 +27,12 @@ async function resolveItemChildren(item: OurTestItem) {
                     const name = entry[0];
                     if (name.endsWith('.cls')) {
                         const child: OurTestItem = localTestController.createTestItem(`${item.id}${name.slice(0, name.length - 4)}`, name, itemUri.with({path: `${itemUri.path}/${name}`}));
+                        child.ourUri = child.uri;
                         child.canResolveChildren = true;
                         child.supportsCoverage = item.supportsCoverage;
                         item.children.add(child);
-                        const fullClassName = child.id.split(':')[2];
-                        console.log(`workspaceFolderTestClasses.length=${workspaceFolderTestClasses.length}, index=${folderIndex}`);
+                        const fullClassName = child.id.split(':')[3];
+                        //console.log(`workspaceFolderTestClasses.length=${workspaceFolderTestClasses.length}, index=${folderIndex}`);
                         workspaceFolderTestClasses[folderIndex].set(fullClassName, child);
                     }
                 });
@@ -45,15 +47,19 @@ async function resolveItemChildren(item: OurTestItem) {
                         for (let index = 0; index < lines.length; index++) {
                             const lineText = lines[index];
                             if (lineText.startsWith('Class ')) {
-                                if (!lineText.includes('%UnitTest.TestCase')) {
-                                    break;
-                                }
+                                // Removed this check because some test classes do not subclass %UnitTest.TestCase directly
+                                // and it would be tricky to check for this client-side, before classes are loaded into a server.
+                                // See https://github.com/intersystems-community/intersystems-testingmanager/issues/27
+                                // if (!lineText.includes('%UnitTest.TestCase')) {
+                                //     break;
+                                // }
                                 item.range = new vscode.Range(new vscode.Position(index, 0), new vscode.Position(index + 1, 0))
                             }
                             const match = lineText.match(/^Method Test(.+)\(/);
                             if (match) {
                                 const testName = match[1];
                                 const child: OurTestItem = localTestController.createTestItem(`${item.id}:Test${testName}`, testName, itemUri);
+                                child.ourUri = child.uri;
                                 child.range = new vscode.Range(new vscode.Position(index, 0), new vscode.Position(index + 1, 0))
                                 child.canResolveChildren = false;
                                 child.supportsCoverage = item.supportsCoverage;
@@ -120,7 +126,7 @@ export function relativeTestRoot(folder: vscode.WorkspaceFolder): string {
 
 /* Replace root items with one item for each file-type workspace root for which a named server can be identified
 */
-async function replaceLocalRootItems(controller: vscode.TestController) {
+export async function replaceLocalRootItems(controller: vscode.TestController) {
     const rootItems: vscode.TestItem[] = [];
     const rootMap = new Map<string, vscode.TestItem>();
     for await (const folder of vscode.workspace.workspaceFolders || []) {
@@ -128,10 +134,11 @@ async function replaceLocalRootItems(controller: vscode.TestController) {
             workspaceFolderTestClasses[folder.index].clear();
             const { serverSpec, namespace } = await resolveServerSpecAndNamespace(folder.uri);
             if (serverSpec && namespace) {
-                const key = serverSpec.name + ":" + namespace + ":";
+                const key = folder.index.toString() + ":" + serverSpec.name + ":" + namespace + ":";
                 if (!rootMap.has(key)) {
                     const relativeRoot = relativeTestRoot(folder);
-                    const item: OurTestItem = controller.createTestItem(key, folder.name, folder.uri.with({path: `${folder.uri.path}/${relativeRoot}`}));
+                    const item: OurTestItem = controller.createTestItem(key, folder.name);
+                    item.ourUri = folder.uri.with({path: `${folder.uri.path}/${relativeRoot}`});
                     item.description = relativeRoot;
                     item.canResolveChildren = true;
                     item.supportsCoverage = await supportsCoverage(folder);

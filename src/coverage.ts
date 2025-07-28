@@ -50,8 +50,19 @@ export async function getFileCoverageResults(folderUri: vscode.Uri, namespace: s
           if (pathPrefix && !pathPrefix.startsWith('/')) {
             pathPrefix = `/${pathPrefix}`;
           }
-          if (exportSettings.atelier) {
+          if (exportSettings.addCategory) {
+            // TODO handle rare(?) Object-format addCategory setting just like the ObjectScript extension implements in src/commands/export.ts
             pathPrefix += '/' + fileType;
+          }
+        }
+
+        // Respect exportSettings.map which the IPM project uses to export %IPM.Foo.cls into IPM/Foo.cls
+        if (exportSettings.map) {
+          for (const pattern of Object.keys(exportSettings.map)) {
+            if (new RegExp(`^${pattern}$`).test(element.Name)) {
+              element.Name = element.Name.replace(new RegExp(`^${pattern}$`), exportSettings.map[pattern]);
+              break;
+            }
           }
         }
         const fileUri = folderUri.with({ path: folderUri.path.concat(pathPrefix, `/${element.Name.replace(/\./g, '/')}.${fileType}`) });
@@ -66,7 +77,7 @@ export async function getFileCoverageResults(folderUri: vscode.Uri, namespace: s
       }
       const testPath: string = element.TestPath || 'all tests';
       if (testPath !== 'all tests') {
-        console.log(`Find TestItem matching test path ${testPath}`);
+        //console.log(`Find TestItem matching test path ${testPath}`);
         const className = testPath.split(':')[1];
         const testItem = workspaceFolderTestClasses[vscode.workspace.getWorkspaceFolder(folderUri)?.index || 0].get(className);
         if (testItem) {
