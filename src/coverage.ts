@@ -34,7 +34,7 @@ export async function getFileCoverageResults(folderUri: vscode.Uri, namespace: s
     serverSpec,
     { apiVersion: 1, namespace, path: "/action/query" },
     {
-      query: "SELECT cu.Hash Hash, cu.Name Name, cu.Type, abcu.ExecutableLines, abcu.CoveredLines, ExecutableMethods, CoveredMethods, TestPath FROM TestCoverage_Data_Aggregate.ByCodeUnit abcu, TestCoverage_Data.CodeUnit cu, TestCoverage_Data.Coverage cov WHERE abcu.CodeUnit = cu.Hash AND cov.Hash = cu.Hash AND abcu.Run = ? AND cov.Run = abcu.Run ORDER BY Hash",
+      query: "SELECT cu.Hash Hash, cu.Name Name, cu.Type, abcu.ExecutableLines, abcu.CoveredLines, ExecutableMethods, CoveredMethods, TestPath FROM TestCoverage_Data_Aggregate.ByCodeUnit abcu, TestCoverage_Data.CodeUnit cu, TestCoverage_Data.Coverage cov WHERE cov.CoveredLines IS NOT NULL AND abcu.CodeUnit = cu.Hash AND cov.Hash = cu.Hash AND abcu.Run = ? AND cov.Run = abcu.Run ORDER BY Hash",
       parameters: [coverageIndex],
     },
   );
