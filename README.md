@@ -22,9 +22,22 @@ _Server-side editing workspace_
 
 When used alongside [Test Coverage Tool](https://openexchange.intersystems.com/package/Test-Coverage-Tool) this extension presents coverage inside VS Code:
 
-![Code coverage example](images/README/Coverage-example.png)
+![Test coverage example](images/README/Coverage-example.png)
 
-_Code coverage example showing coverage of Test Coverage Tool's own unit tests_
+_Coverage example showing coverage of Test Coverage Tool's own unit tests_
+
+In the above screenshot the Test Coverage view has been dragged to the secondary sidebar.
+
+
+Displaying which code lines your tests cover aids the improvement of those tests. The greater the percentage of code lines covered by testing, the more likely your tests will detect regressions.
+
+Below is an example from the [InterSystems Package Manager](https://github.com/intersystems/ipm) repository. Two test classes ran code in the %IPM.Repo.Definition class, but neither of them covered line 88 in the screenshot below:
+
+![Tests missed part of a method](images/README/Coverage-missed-part-of-method.png)
+
+_Tests failed to cover line 88_
+
+The optional Test Coverage Toolbar at the top of the class's editor and the coverage decorations in the Explorer tree combine to promote good testing habits.
 
 In order to support topologies in which client-side-managed test classes have to be run in the namespace of a remote server, this extension uses the `/_vscode` web application on the test-running server, no matter whether local or remote.
 
@@ -82,12 +95,13 @@ Hovering on a run's folder reveals an action button which launches %UnitTest's o
 
 ## Known Limitations
 
-This extension is a preview and has some known limitations:
+This extension has some known quirks and limitations:
 
 - The extension uses server-side REST support for debugging even when tests are not being debugged. Debug support is broken in InterSystems IRIS 2021.1.3, and maybe also in earlier 2021.1.x versions. Either upgrade to a later version or request an ad-hoc patch from InterSystems.
-- In client-side mode test-run results don't update the testing icons in the editor gutter or the Local Tests tree in Testing view. Workaround is to view them under the Recent History tree.
-- The extension has only been tested with InterSystems IRIS instances that use the English locale. Its technique for parsing the output from %UnitTest is likely to fail with other locales.
-- The `/autoload` feature of %UnitTest is not supported. This is only relevant to client-side mode.
+- Launching the IRIS debugger requires a document on the target server namespace to be open and active. This extension opens one automatically at the beginning of all types of test (Run, Debug and Run With Coverage).
+- The very first coverage-type run after installation may report that the Test Coverage Tool is missing. Use the Refresh Tests button on the Test Explorer view, then retry your coverage run.
+- The extension has only been tested with InterSystems IRIS instances that use the English locale. Its technique for parsing the output from %UnitTest may fail when used with other locales.
+- The `/autoload` feature of %UnitTest is not currently supported. This is only relevant to client-side mode.
 - The loading and deleting of unit test classes which occurs when using client-side mode will raise corresponding events on any source control class that the target namespace may have been configured to use.
 
 ## Feedback
