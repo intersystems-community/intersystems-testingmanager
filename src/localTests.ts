@@ -4,11 +4,8 @@ import { localTestController, OurTestItem, workspaceFolderTestClasses } from './
 import logger from './logger';
 import { resolveServerSpecAndNamespace, supportsCoverage } from './utils';
 
-const isResolvedMap = new WeakMap<vscode.TestItem, boolean>();
-
 async function resolveItemChildren(item: OurTestItem) {
     if (item) {
-        isResolvedMap.set(item, true);
         const itemUri = item.ourUri;
         if (itemUri) {
             const folderIndex = item.id.split(':')[0]; //vscode.workspace.getWorkspaceFolder(itemUri)?.index || 0;
@@ -17,25 +14,41 @@ async function resolveItemChildren(item: OurTestItem) {
                 const contents = await vscode.workspace.fs.readDirectory(itemUri);
                 contents.filter((entry) => entry[1] === vscode.FileType.Directory).forEach((entry) => {
                     const name = entry[0];
-                    const child: OurTestItem = localTestController.createTestItem(`${item.id}${name}.`, name);
+                    const childId = `${item.id}${name}.`;
+                    if (item.children.get(childId)) {
+                      return;
+                    }
+                    const child: OurTestItem = localTestController.createTestItem(childId, name);
                     child.ourUri = itemUri.with({path: `${itemUri.path}/${name}`});
                     child.canResolveChildren = true;
-                        child.supportsCoverage = item.supportsCoverage;
+                    child.supportsCoverage = item.supportsCoverage;
                     item.children.add(child);
                 });
                 contents.filter((entry) => entry[1] === vscode.FileType.File).forEach((entry) => {
                     const name = entry[0];
                     if (name.endsWith('.cls')) {
-                        const child: OurTestItem = localTestController.createTestItem(`${item.id}${name.slice(0, name.length - 4)}`, name, itemUri.with({path: `${itemUri.path}/${name}`}));
+                        const childId = `${item.id}${name.slice(0, name.length - 4)}`;
+                        if (item.children.get(childId)) {
+                          return;
+                        }
+                        const child: OurTestItem = localTestController.createTestItem(childId, name, itemUri.with({path: `${itemUri.path}/${name}`}));
                         child.ourUri = child.uri;
                         child.canResolveChildren = true;
                         child.supportsCoverage = item.supportsCoverage;
                         item.children.add(child);
                         const fullClassName = child.id.split(':')[3];
+                        if (!child.parent) {
+                          console.log(`*** BUG - child (id=${child.id}) has no parent after item.children.add(child) where item.id=${item.id}`);
+                        }
                         //console.log(`workspaceFolderTestClasses.length=${workspaceFolderTestClasses.length}, index=${folderIndex}`);
                         workspaceFolderTestClasses[folderIndex].set(fullClassName, child);
                     }
                 });
+                if (item.children.size === 0) {
+                    // If no children, this is a class with no tests
+                    item.canResolveChildren = false;
+                    item.supportsCoverage = false;
+                }
             } catch (error) {
                 if (error.code !== vscode.FileSystemError.FileNotADirectory().code) {
                     throw error;
@@ -58,7 +71,11 @@ async function resolveItemChildren(item: OurTestItem) {
                             const match = lineText.match(/^Method Test(.+)\(/);
                             if (match) {
                                 const testName = match[1];
-                                const child: OurTestItem = localTestController.createTestItem(`${item.id}:Test${testName}`, testName, itemUri);
+                                const childId = `${item.id}:Test${testName}`;
+                                if (item.children.get(childId)) {
+                                  continue;
+                                }
+                                const child: OurTestItem = localTestController.createTestItem(childId, testName, itemUri);
                                 child.ourUri = child.uri;
                                 child.range = new vscode.Range(new vscode.Position(index, 0), new vscode.Position(index + 1, 0))
                                 child.canResolveChildren = false;

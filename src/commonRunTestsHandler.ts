@@ -10,8 +10,6 @@ import { SQL_FN_RUNTESTPROXY, UTIL_CLASSNAME } from './utils';
 export async function commonRunTestsHandler(controller: vscode.TestController, resolveItemChildren: (item: vscode.TestItem) => Promise<void>, request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
   logger.debug(`commonRunTestsHandler invoked by controller id=${controller.id}`);
 
-  const isResolvedMap = new WeakMap<vscode.TestItem, boolean>();
-
   // For each authority (i.e. server:namespace) accumulate a map of the class-level Test nodes in the tree.
   // We don't yet support running only some TestXXX methods in a testclass
   const mapAuthorities = new Map<string, Map<string, OurTestItem>>();
@@ -50,8 +48,8 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       continue;
     }
 
-    // Resolve children if not already done
-    if (test.canResolveChildren && !isResolvedMap.get(test)) {
+    // Resolve children if not definitely already done
+    if (test.canResolveChildren && test.children.size === 0) {
       await resolveItemChildren(test);
     }
 
@@ -237,11 +235,6 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
             run.errored(classTest, new vscode.TestMessage(error instanceof Error ? error.message : String(error)));
             continue;
           }
-
-          // Unless the file copy failed, enqueue all the testitems that represent the TestXXX methods of the class
-          classTest.children.forEach((methodTest) => {
-            run.enqueued(methodTest);
-          });
         }
       }
 
