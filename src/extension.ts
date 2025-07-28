@@ -4,7 +4,7 @@ import * as vscode from "vscode";
 import * as serverManager from "@intersystems-community/intersystems-servermanager";
 import { setupHistoryExplorerController } from "./historyExplorer";
 import { setupServerTestsController } from "./serverTests";
-import { setupLocalTestsController } from "./localTests";
+import { replaceLocalRootItems, setupLocalTestsController } from "./localTests";
 import { DebugTrackerFactory } from "./debugTrackerFactory";
 
 export const extensionId = "intersystems-community.testingmanager";
@@ -19,10 +19,14 @@ export interface OurTestRun extends vscode.TestRun {
 }
 
 export interface OurTestItem extends vscode.TestItem {
+  ourUri?: vscode.Uri;
   supportsCoverage?: boolean
 }
 
 export const allTestRuns: (OurTestRun | undefined)[] = [];
+
+// Array indexed by workspaceFolder index, each element holding a map from classname ('P1.P2.C') to TestItem
+export let workspaceFolderTestClasses: Map<string, OurTestItem>[] = [];
 
 async function getServerManagerAPI(): Promise<serverManager.ServerManagerAPI | undefined> {
     const targetExtension = vscode.extensions.getExtension("intersystems-community.servermanager");
@@ -61,6 +65,22 @@ export async function activate(context: vscode.ExtensionContext) {
     osAPI = await getObjectScriptAPI();
     smAPI = await getServerManagerAPI();
     // TODO notify user if either of these returned undefined (extensionDependencies setting should prevent that, but better to be safe)
+
+
+    const initWorkspaceFolderTestClasses = () => {
+      workspaceFolderTestClasses = [];
+      vscode.workspace.workspaceFolders?.forEach(() => {
+        // Initialize the map for this workspace folder's test class items
+        workspaceFolderTestClasses.push(new Map<string, OurTestItem>());
+      });
+    }
+    initWorkspaceFolderTestClasses();
+    context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(async (e) => {
+        initWorkspaceFolderTestClasses();
+        await replaceLocalRootItems(localTestController);
+    }));
+
+
 
     // Other parts of this extension will use the test controllers we create here
     localTestController = vscode.tests.createTestController(`${extensionId}-Local`, '$(folder-library) Local Tests');

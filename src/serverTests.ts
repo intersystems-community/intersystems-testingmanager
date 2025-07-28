@@ -1,18 +1,19 @@
 import * as vscode from 'vscode';
-import { loadedTestController, OurTestItem } from './extension';
+import { loadedTestController, OurTestItem, workspaceFolderTestClasses } from './extension';
 import { replaceRootItems, serverSpec } from './historyExplorer';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
 import { commonRunTestsHandler } from './commonRunTestsHandler';
 
 async function resolveItemChildren(item?: OurTestItem) {
-    if (item) {
+    if (item && item.uri) {
         item.busy = true;
+        const folderIndex = vscode.workspace.getWorkspaceFolder(item.uri)?.index || 0;
         const spec = await serverSpec(item);
         const parts = item.id.split(':');
-        const namespace = parts[1];
+        const namespace = parts[2];
         if (spec) {
-            if (parts.length === 2) {
+            if (parts.length === 3) {
                 // Find all TestCase classes
                 const response = await makeRESTRequest(
                     "POST",
@@ -54,6 +55,9 @@ async function resolveItemChildren(item?: OurTestItem) {
                         }
                         if (tiClass.children.size > 0) {
                             item.children.add(tiClass);
+                            const fullClassName = tiClass.id.split(':')[3];
+                            //console.log(`workspaceFolderTestClasses.length=${workspaceFolderTestClasses.length}, index=${folderIndex}`);
+                            workspaceFolderTestClasses[folderIndex].set(fullClassName, tiClass);
                         }
                     }
                 }

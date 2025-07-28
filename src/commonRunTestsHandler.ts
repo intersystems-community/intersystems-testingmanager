@@ -5,15 +5,14 @@ import { relativeTestRoot } from './localTests';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
 import { OurFileCoverage } from './ourFileCoverage';
+import { SQL_FN_RUNTESTPROXY, UTIL_CLASSNAME } from './utils';
 
 export async function commonRunTestsHandler(controller: vscode.TestController, resolveItemChildren: (item: vscode.TestItem) => Promise<void>, request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
   logger.debug(`commonRunTestsHandler invoked by controller id=${controller.id}`);
 
-  const isResolvedMap = new WeakMap<vscode.TestItem, boolean>();
-
   // For each authority (i.e. server:namespace) accumulate a map of the class-level Test nodes in the tree.
   // We don't yet support running only some TestXXX methods in a testclass
-  const mapAuthorities = new Map<string, Map<string, vscode.TestItem>>();
+  const mapAuthorities = new Map<string, Map<string, OurTestItem>>();
   const runIndices: number[] =[];
   const queue: OurTestItem[] = [];
   const coverageRequest = request.profile?.kind === vscode.TestRunProfileKind.Coverage;
@@ -49,14 +48,14 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       continue;
     }
 
-    // Resolve children if not already done
-    if (test.canResolveChildren && !isResolvedMap.get(test)) {
+    // Resolve children if not definitely already done
+    if (test.canResolveChildren && test.children.size === 0) {
       await resolveItemChildren(test);
     }
 
     // If a leaf item (a TestXXX method in a class) note its .cls file for copying.
-    // Every leaf must have a uri.
-    if (test.children.size === 0 && test.uri && test.parent) {
+    // Every leaf should have a uri.
+    if (test.children.size === 0 && test.uri) {
       let authority = test.uri.authority;
       let key = test.uri.path;
       if (test.uri.scheme === "file") {
@@ -69,9 +68,13 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         }
       }
 
-      const mapTestClasses = mapAuthorities.get(authority) || new Map<string, vscode.TestItem>();
-      mapTestClasses.set(key, test.parent);
-      mapAuthorities.set(authority, mapTestClasses);
+      const mapTestClasses = mapAuthorities.get(authority) || new Map<string, OurTestItem>();
+      if (!mapTestClasses.has(key) && test.parent) {
+        // When leaf is a test its parent has a uri and is the class
+        // Otherwise the leaf is a class with no tests
+        mapTestClasses.set(key, test.parent.uri ? test.parent : test);
+        mapAuthorities.set(authority, mapTestClasses);
+      }
     }
 
     // Queue any children
@@ -108,15 +111,23 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
     );
     let authority = mapInstance[0];
     const mapTestClasses = mapInstance[1];
+
+    // enqueue everything up front so user sees immediately which tests will run
+    mapTestClasses.forEach((test) => {
+      test.children.forEach((methodTest) => {
+        run.enqueued(methodTest);
+      });
+    });
+
     const firstClassTestItem = Array.from(mapTestClasses.values())[0];
-    const oneUri = firstClassTestItem.uri;
+    const oneUri = firstClassTestItem.ourUri;
 
     // This will always be true since every test added to the map above required a uri
     if (oneUri) {
 
       // First, clear out the server-side folder for the classes whose testmethods will be run
       const folder = vscode.workspace.getWorkspaceFolder(oneUri);
-      const server = osAPI.serverForUri(oneUri);
+      const server = await osAPI.asyncServerForUri(oneUri);
       const serverSpec: IServerSpec = {
         username: server.username,
         password: server.password,
@@ -165,9 +176,14 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         const key = mapInstance[0];
         const pathParts = key.split('/');
         pathParts.pop();
-        const sourceBaseUri = mapInstance[1].uri?.with({ path: mapInstance[1].uri.path.split('/').slice(0, -pathParts.length).join('/') });
+        const sourceBaseUri = mapInstance[1].ourUri?.with({ path: mapInstance[1].ourUri.path.split('/').slice(0, -pathParts.length).join('/') });
         if (!sourceBaseUri) {
           console.log(`No sourceBaseUri for key=${key}`);
+          continue;
+        }
+        // isfs folders can't supply coverage.list files, so don't bother looking.
+        // Instead the file has to be put in the /namespace/UnitTestRoot/ folder of the /_vscode webapp of the %SYS namespace.
+        if (['isfs', 'isfs-readonly'].includes(sourceBaseUri.scheme)) {
           continue;
         }
         while (pathParts.length > 1) {
@@ -216,13 +232,9 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
             await vscode.workspace.fs.copy(uri, directoryUri.with({ path: directoryUri.path.concat(clsFile) }));
           } catch (error) {
             console.log(error);
+            run.errored(classTest, new vscode.TestMessage(error instanceof Error ? error.message : String(error)));
             continue;
           }
-
-          // Unless the file copy failed, enqueue all the testitems that represent the TestXXX methods of the class
-          classTest.children.forEach((methodTest) => {
-            run.enqueued(methodTest);
-          });
         }
       }
 
@@ -240,31 +252,36 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       let testSpec = username;
       if (request.include?.length === 1) {
         const idParts = request.include[0].id.split(":");
-        if (idParts.length === 4) {
-          testSpec = `${username}:${idParts[2]}:${idParts[3]}`;
+        if (idParts.length === 5) {
+          testSpec = `${username}:${idParts[3]}:${idParts[4]}`;
         }
       }
 
-      let managerClass = "%UnitTest.Manager";
+      let program = `##class(%UnitTest.Manager).RunTest("${testSpec}","${runQualifiers}")`;
       if (coverageRequest) {
-        managerClass = "TestCoverage.Manager";
-        request.profile.loadDetailedCoverage = async (testRun, fileCoverage, token) => {
+        program = `##class(${UTIL_CLASSNAME}).${SQL_FN_RUNTESTPROXY}("${testSpec}","${runQualifiers}",2)`;
+        request.profile.loadDetailedCoverage = async (_testRun, fileCoverage, _token) => {
           return fileCoverage instanceof OurFileCoverage ? fileCoverage.loadDetailedCoverage() : [];
+        };
+        request.profile.loadDetailedCoverageForTest = async (_testRun, fileCoverage, fromTestItem, _token) => {
+          return fileCoverage instanceof OurFileCoverage ? fileCoverage.loadDetailedCoverage(fromTestItem) : [];
         };
       }
       const configuration = {
-        "type": "objectscript",
-        "request": "launch",
-        "name": `${controller.id.split("-").pop()}Tests:${serverSpec.name}:${namespace}:${username}`,
-        "program": `##class(${managerClass}).RunTest("${testSpec}","${runQualifiers}")`,
+        type: "objectscript",
+        request: "launch",
+        name: `${controller.id.split("-").pop()}Tests:${serverSpec.name}:${namespace}:${username}`,
+        program,
 
         // Extra properties needed by our DebugAdapterTracker
-        "testingRunIndex": runIndex,
-        "testingIdBase": firstClassTestItem.id.split(":", 2).join(":")
+        testingRunIndex: runIndex,
+        testingIdBase: firstClassTestItem.id.split(":", 3).join(":")
       };
       const sessionOptions: vscode.DebugSessionOptions = {
         noDebug: !isDebug,
-        suppressDebugToolbar: request.profile?.kind !== vscode.TestRunProfileKind.Debug
+        suppressDebugToolbar: request.profile?.kind !== vscode.TestRunProfileKind.Debug,
+        suppressDebugView: request.profile?.kind !== vscode.TestRunProfileKind.Debug,
+        testRun: run,
       };
 
       // ObjectScript debugger's initializeRequest handler needs to identify target server and namespace

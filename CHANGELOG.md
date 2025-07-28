@@ -1,3 +1,7 @@
+## 2.0.1 (28-Jul-2025)
+* Activate the Covering Tests filter in the editor's Test Coverage Toolbar (#44)
+* Various bugfixes and improvements.
+
 ## 2.0.0 (23-Jul-2025)
 * Use [Test Coverage Tool](https://openexchange.intersystems.com/package/Test-Coverage-Tool) to present coverage information (#24)
 
