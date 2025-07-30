@@ -7,12 +7,14 @@ import { SQL_FN_INT8BITSTRING } from './utils';
 
 export class OurFileCoverage extends vscode.FileCoverage {
 
+  public readonly name: string;
   public readonly codeUnit: string;
   private coverageIndex: number;
 
-  constructor(coverageIndex: number, codeUnit: string, uri: vscode.Uri, statementCoverage: vscode.TestCoverageCount, branchCoverage?: vscode.TestCoverageCount, declarationCoverage?: vscode.TestCoverageCount, includesTests?: vscode.TestItem[]) {
+  constructor(coverageIndex: number, name: string, codeUnit: string, uri: vscode.Uri, statementCoverage: vscode.TestCoverageCount, branchCoverage?: vscode.TestCoverageCount, declarationCoverage?: vscode.TestCoverageCount, includesTests?: vscode.TestItem[]) {
     super(uri, statementCoverage, branchCoverage, declarationCoverage, includesTests);
     this.coverageIndex = coverageIndex;
+    this.name = name;
     this.codeUnit = codeUnit;
   }
 
@@ -33,9 +35,30 @@ export class OurFileCoverage extends vscode.FileCoverage {
     };
     const namespace: string = server.namespace.toUpperCase();
 
+    // When ObjectScript extension spreads method arguments over multiple lines, we need to compute offsets
+    const mapOffsets: Map<string, number> = new Map();
+    if (vscode.workspace.getConfiguration('objectscript', this.uri).get('multilineMethodArgs', false)) {
+      const response = await makeRESTRequest(
+        "POST",
+        serverSpec,
+        { apiVersion: 1, namespace, path: "/action/query" },
+        {
+          query: "SELECT Name as Method, SUM( CASE WHEN $LENGTH(FormalSpec, ',') > 1 THEN $LENGTH(FormalSpec, ',') ELSE 0 END ) OVER ( ORDER BY SequenceNumber ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW ) AS Offset FROM %Dictionary.MethodDefinition WHERE parent = ?",
+          parameters: [this.name],
+        },
+      );
+      if (response) {
+        response?.data?.result?.content?.forEach(element => {
+          const methodName = element.Method;
+          const offset = Number(element.Offset);
+          mapOffsets.set(methodName, offset);
+        });
+      }
+    }
+
     // Get map of lines to methods
-    const mapMethods: Map<number, string> = new Map();
-    const lineToMethod: string[] = [];
+    const mapMethodsInCoverage: Map<number, string> = new Map();
+    const mapMethodsInDocument: Map<number, string> = new Map();
     let response = await makeRESTRequest(
       "POST",
       serverSpec,
@@ -46,14 +69,10 @@ export class OurFileCoverage extends vscode.FileCoverage {
       },
     );
     if (response) {
-      let previousMethod = "";
-      let previousLine = 0;
       response?.data?.result?.content?.forEach(element => {
         const thisLine = Number(element.Line);
-        mapMethods.set(Number(element.Line), element.Method);
-        lineToMethod.fill(previousMethod, previousLine, thisLine -1);
-        previousMethod = element.Method;
-        previousLine = thisLine;
+        mapMethodsInCoverage.set(thisLine, element.Method);
+        mapMethodsInDocument.set(thisLine + (mapOffsets.get(element.Method) || 0), element.Method);
       });
     }
 
@@ -80,14 +99,24 @@ export class OurFileCoverage extends vscode.FileCoverage {
         // Process the Uint8Bitstring values for executable and covered lines
         const i8bsExecutableLines = element.i8bsExecutableLines;
         const i8bsCoveredLines = element.i8bsCoveredLines;
+
+        let offset = 0; // We will add this to line number in coverage results to get line number in document, adjusted for multiline method arguments
         for (let lineChunk = 0; lineChunk < i8bsExecutableLines.length; lineChunk++) {
           const executableLines = i8bsExecutableLines.charCodeAt(lineChunk);
           const coveredLines = i8bsCoveredLines.charCodeAt(lineChunk);
           for (let bitIndex = 0; bitIndex < 8; bitIndex++) {
+            const lineNumberOfCoverage = lineChunk * 8 + bitIndex + 1;
+
+            // On a method declaration line we should recompute the offset
+            const method = mapMethodsInCoverage.get(lineNumberOfCoverage);
+            if (method) {
+              offset = (mapOffsets.get(method) || offset);
+            }
+
             if ((executableLines & (1 << bitIndex)) !== 0) {
-              const lineNumber = lineChunk * 8 + bitIndex + 1;
               const isCovered = (coveredLines & (1 << bitIndex)) !== 0;
-              const range = new vscode.Range(new vscode.Position(lineNumber - 1, 0), new vscode.Position(lineNumber - 1, Number.MAX_VALUE));
+              const lineNumberOfDocument = lineNumberOfCoverage + offset;
+              const range = new vscode.Range(new vscode.Position(lineNumberOfDocument - 1, 0), new vscode.Position(lineNumberOfDocument - 1, Number.MAX_VALUE));
               const statementCoverage = new vscode.StatementCoverage(isCovered, range);
               detailedCoverage.push(statementCoverage);
             }
@@ -109,18 +138,26 @@ export class OurFileCoverage extends vscode.FileCoverage {
     if (response) {
       let previousMethod = "";
       let previousStartLine = 0;
+      let startOffset = 0;
+      let endOffset = 0;
       response?.data?.result?.content?.forEach(element => {
+        const currentMethod = element.Method;
+        const currentStartLine = Number(element.StartLine);
         if (previousMethod && previousStartLine) {
-          const start = new vscode.Position(Number(previousStartLine) - 1, 0);
-          const end = new vscode.Position(Number(element.StartLine) - 2, Number.MAX_VALUE);
+          const start = new vscode.Position(previousStartLine - 1 + startOffset, 0);
+          const end = new vscode.Position(currentStartLine - 2 + endOffset, Number.MAX_VALUE);
           detailedCoverage.push(new vscode.DeclarationCoverage(previousMethod, true, new vscode.Range(start, end)));
         }
-        previousMethod = element.Method;
-        previousStartLine = Number(element.StartLine);
+        startOffset = endOffset;
+        endOffset = (mapOffsets.get(currentMethod) || endOffset);
+        previousMethod = currentMethod;
+        previousStartLine = currentStartLine;
       });
+
+      // Add the final method (if any)
       if (previousMethod && previousStartLine) {
-        const start = new vscode.Position(Number(previousStartLine) - 1, 0);
-        const end = new vscode.Position(Number.MAX_VALUE, Number.MAX_VALUE);
+        const start = new vscode.Position(previousStartLine - 1 + startOffset, 0);
+        const end = new vscode.Position(Number.MAX_VALUE, Number.MAX_VALUE); // Hack that will cover the rest of the file, not just the the final method
         detailedCoverage.push(new vscode.DeclarationCoverage(previousMethod, true, new vscode.Range(start, end)));
       }
     }
