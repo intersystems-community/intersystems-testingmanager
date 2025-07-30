@@ -131,7 +131,20 @@ export class OurFileCoverage extends vscode.FileCoverage {
       serverSpec,
       { apiVersion: 1, namespace, path: "/action/query" },
       {
-        query: "SELECT element_key StartLine, LineToMethodMap Method FROM TestCoverage_Data.CodeUnit_LineToMethodMap WHERE CodeUnit = ? ORDER BY StartLine",
+        query: `
+SELECT clm.element_key AS StartLine,
+  clm.LineToMethodMap AS Method,
+  CASE
+    WHEN md.Description IS NULL THEN 0
+    ELSE $LENGTH(md.Description, CHAR(13))
+  END AS DescriptionLineCount
+FROM TestCoverage_Data.CodeUnit_LineToMethodMap clm
+  JOIN TestCoverage_Data.CodeUnit cu ON clm.CodeUnit = cu.Hash
+  LEFT JOIN %Dictionary.MethodDefinition md ON md.Name = clm.LineToMethodMap
+  AND md.parent = cu.Name
+WHERE clm.CodeUnit = ?
+ORDER BY StartLine
+          `,
         parameters: [this.codeUnit],
       },
     );
@@ -143,6 +156,7 @@ export class OurFileCoverage extends vscode.FileCoverage {
       response?.data?.result?.content?.forEach(element => {
         const currentMethod = element.Method;
         const currentStartLine = Number(element.StartLine);
+        const descriptionLineCount = Number(element.DescriptionLineCount);
         if (previousMethod && previousStartLine) {
           const start = new vscode.Position(previousStartLine - 1 + startOffset, 0);
           const end = new vscode.Position(currentStartLine - 2 + endOffset, Number.MAX_VALUE);
@@ -151,7 +165,7 @@ export class OurFileCoverage extends vscode.FileCoverage {
         startOffset = endOffset;
         endOffset = (mapOffsets.get(currentMethod) || endOffset);
         previousMethod = currentMethod;
-        previousStartLine = currentStartLine;
+        previousStartLine = currentStartLine - descriptionLineCount;
       });
 
       // Add the final method (if any)
