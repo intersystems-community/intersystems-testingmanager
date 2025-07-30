@@ -159,7 +159,7 @@ ORDER BY StartLine
         const descriptionLineCount = Number(element.DescriptionLineCount);
         if (previousMethod && previousStartLine) {
           const start = new vscode.Position(previousStartLine - 1 + startOffset, 0);
-          const end = new vscode.Position(currentStartLine - 2 + endOffset, Number.MAX_VALUE);
+          const end = new vscode.Position(currentStartLine - 2 + endOffset - descriptionLineCount, Number.MAX_VALUE);
           detailedCoverage.push(new vscode.DeclarationCoverage(previousMethod, true, new vscode.Range(start, end)));
         }
         startOffset = endOffset;
