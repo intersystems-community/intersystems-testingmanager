@@ -1,5 +1,6 @@
-## 2.0.2 (dd-Mmm-2025)
+## 2.0.2 (30-Jul-2025)
 * Fix coverage marking when `"objectscript.multilineMethodArgs": true` (#46)
+* Improve method range highlighting accessed from coverage tree (#48)
 
 ## 2.0.1 (28-Jul-2025)
 * Activate the Covering Tests filter in the editor's Test Coverage Toolbar (#44)
