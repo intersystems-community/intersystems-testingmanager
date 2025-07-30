@@ -56,6 +56,8 @@ export async function getFileCoverageResults(folderUri: vscode.Uri, namespace: s
           }
         }
 
+        const className = element.Name;
+
         // Respect exportSettings.map which the IPM project uses to export %IPM.Foo.cls into IPM/Foo.cls
         if (exportSettings.map) {
           for (const pattern of Object.keys(exportSettings.map)) {
@@ -68,6 +70,7 @@ export async function getFileCoverageResults(folderUri: vscode.Uri, namespace: s
         const fileUri = folderUri.with({ path: folderUri.path.concat(pathPrefix, `/${element.Name.replace(/\./g, '/')}.${fileType}`) });
         fileCoverage = new OurFileCoverage(
           coverageIndex,
+          className,
           element.Hash,
           fileUri,
           new vscode.TestCoverageCount(element.CoveredLines, element.ExecutableLines),
