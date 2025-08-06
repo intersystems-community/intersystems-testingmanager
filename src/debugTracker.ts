@@ -132,9 +132,9 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
           const assertFailedMatch = line.match(/^(Assert\w+):(.*) \(failed\)  <<====/);
           if (assertFailedMatch) {
             //const macroName = assertFailedMatch[1];
-            const message = assertFailedMatch[2];
+            const failedMessage = assertFailedMatch[2];
             //console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName ${macroName}, outcome 'failed', message=${message}`);
-            this.failureMessages.push({ message: message });
+            this.failureMessages.push({ message: failedMessage });
           } else {
             const assertSkippedMatch = line.match(/^        (Test\w+):(.*) \(skipped\)$/);
             if (assertSkippedMatch) {
