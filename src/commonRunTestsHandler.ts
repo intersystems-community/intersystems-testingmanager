@@ -114,7 +114,18 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
 
     // enqueue everything up front so user sees immediately which tests will run
     mapTestClasses.forEach((test) => {
+      let methodTarget = "";
+      if (request.include?.length === 1) {
+        const idParts = request.include[0].id.split(":");
+        if (idParts.length === 5) {
+          methodTarget = request.include[0].id;
+        }
+      }
       test.children.forEach((methodTest) => {
+        if (methodTarget && methodTarget !== methodTest.id) {
+          // User specified a single test method to run, so skip all others
+          return;
+        }
         run.enqueued(methodTest);
       });
     });
@@ -253,7 +264,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       if (request.include?.length === 1) {
         const idParts = request.include[0].id.split(":");
         if (idParts.length === 5) {
-          testSpec = `${username}:${idParts[3]}:${idParts[4]}`;
+          testSpec = `${username}\\${idParts[3].split(".").slice(0, -1).join("\\")}:${idParts[3]}:${idParts[4]}`;
         }
       }
 
