@@ -5,7 +5,6 @@ import { relativeTestRoot } from './localTests';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
 import { OurFileCoverage } from './ourFileCoverage';
-import { SQL_FN_RUNTESTPROXY, UTIL_CLASSNAME } from './utils';
 
 export async function commonRunTestsHandler(controller: vscode.TestController, resolveItemChildren: (item: vscode.TestItem) => Promise<void>, request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
   logger.debug(`commonRunTestsHandler invoked by controller id=${controller.id}`);
@@ -254,7 +253,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       const isClientSideMode = controller.id === `${extensionId}-Local`;
       const isDebug = request.profile?.kind === vscode.TestRunProfileKind.Debug;
       const runQualifiers = !isClientSideMode ? "/noload/nodelete" : isDebug ? "/noload" : "";
-      let userParam = vscode.workspace.getConfiguration('objectscript', oneUri).get<boolean>('multilineMethodArgs', false) ? 1 : 0;
+      const userParam = vscode.workspace.getConfiguration('objectscript', oneUri).get<boolean>('multilineMethodArgs', false) ? 1 : 0;
       const runIndex = allTestRuns.push(run) - 1;
       runIndices.push(runIndex);
 
@@ -271,7 +270,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
 
       let program = `##class(vscode.dc.testingmanager.StandardManager).RunTest("${testSpec}","${runQualifiers}",${userParam})`;
       if (coverageRequest) {
-        program = `##class(${UTIL_CLASSNAME}).${SQL_FN_RUNTESTPROXY}("${testSpec}","${runQualifiers}",2)`;
+        program = `##class(vscode.dc.testingmanager.CoverageManager).RunTest("${testSpec}","${runQualifiers}",${userParam})`
         request.profile.loadDetailedCoverage = async (_testRun, fileCoverage, _token) => {
           return fileCoverage instanceof OurFileCoverage ? fileCoverage.loadDetailedCoverage() : [];
         };
