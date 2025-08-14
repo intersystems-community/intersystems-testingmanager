@@ -7,5 +7,26 @@ ClassMethod RunTest(ByRef testspec As %String, qspec As %String, ByRef userparam
   Return ##super(testspec, qspec, .userparam)
 }
 
+ClassMethod tmInt8Bitstring(bitstring As %String) As %String [ SqlProc ]
+{
+  Set output = "", iMod8=-1, char=0, weight=1
+  For i=1:1:$BitCount(bitstring) {
+    Set bitvalue = $Bit(bitstring, i)
+    Set iMod8 = (i-1)#8
+    If bitvalue {
+      Set char = char+weight
+    }
+    Set weight = weight*2
+    If iMod8 = 7 {
+      Set output = output_$Char(char)
+      Set char = 0, weight = 1
+      Set iMod8 = -1
+    }
+  }
+  If iMod8 > -1 {
+    Set output = output_$Char(char)
+  }
+  Return output
+}
 
 }

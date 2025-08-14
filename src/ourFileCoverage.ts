@@ -3,7 +3,6 @@ import logger from './logger';
 import { IServerSpec } from '@intersystems-community/intersystems-servermanager';
 import { makeRESTRequest } from './makeRESTRequest';
 import { osAPI } from './extension';
-import { SQL_FN_INT8BITSTRING } from './utils';
 
 export class OurFileCoverage extends vscode.FileCoverage {
 
@@ -89,7 +88,7 @@ export class OurFileCoverage extends vscode.FileCoverage {
       serverSpec,
       { apiVersion: 1, namespace, path: "/action/query" },
       {
-        query: `SELECT TestCoverage_UI.${SQL_FN_INT8BITSTRING}(cu.ExecutableLines) i8bsExecutableLines, TestCoverage_UI.${SQL_FN_INT8BITSTRING}(cov.CoveredLines) i8bsCoveredLines FROM TestCoverage_Data.CodeUnit cu, TestCoverage_Data.Coverage cov WHERE cu.Hash = cov.Hash AND Run = ? AND cu.Hash = ? AND TestPath = ?`,
+        query: `SELECT vscode_dc_testingmanager.CoverageManager_tmInt8Bitstring(cu.ExecutableLines) i8bsExecutableLines, vscode_dc_testingmanager.CoverageManager_tmInt8Bitstring(cov.CoveredLines) i8bsCoveredLines FROM TestCoverage_Data.CodeUnit cu, TestCoverage_Data.Coverage cov WHERE cu.Hash = cov.Hash AND Run = ? AND cu.Hash = ? AND TestPath = ?`,
         parameters: [this.coverageIndex, this.codeUnit, testPath],
       },
     );
