@@ -2,6 +2,8 @@
 Class vscode.dc.testingmanager.BaseManager [ Abstract ]
 {
 
+Parameter VERSION As STRING = "2.0.3";
+
 Property tmMethodMap As %String [ MultiDimensional, Private ];
 
 Method tmMapOneFile(file As %String) [ Private ]

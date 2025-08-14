@@ -7,6 +7,8 @@ ClassMethod RunTest(ByRef testspec As %String, qspec As %String, ByRef userparam
   Return ##super(testspec, qspec, .userparam)
 }
 
+/// SQL function to convert an IRIS bitstring to an Int8 bitstring for ease of handling in Typescript
+/// Example usage: SELECT vscode_dc_testingmanager_CoverageManager.tmInt8Bitstring(cu.ExecutableLines) i8bsExecutableLines
 ClassMethod tmInt8Bitstring(bitstring As %String) As %String [ SqlProc ]
 {
   Set output = "", iMod8=-1, char=0, weight=1

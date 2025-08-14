@@ -169,9 +169,25 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       // When client-side mode is using 'objectscript.conn.docker-compose the first piece of 'authority' is blank,
       if (authority.startsWith(":")) {
         authority = folder?.name || "";
+      } else {
+        authority = authority.split(":")[0];
       }
+
+      // Load our support classes
+      // TODO - as an optimization, check if they already exist and with the correct #VERSION parameter
+      try {
+        const extensionUri = vscode.extensions.getExtension(extensionId)?.extensionUri;
+        if (extensionUri) {
+          const sourceDir = extensionUri.with({ path: extensionUri.path + '/serverSide/src' + '/vscode/dc/testingmanager'});
+          const destinationDir = vscode.Uri.from({ scheme: 'isfs', authority: `${authority}:${namespace}`, path: '/vscode/dc/testingmanager'})
+          await vscode.workspace.fs.copy(sourceDir, destinationDir, { overwrite: true });
+        }
+      } catch (error) {
+        console.log(error);
+      }
+
       // No longer rely on ISFS redirection of /.vscode because since ObjectScript v3.0 it no longer works for client-only workspaces.
-      const testRoot = vscode.Uri.from({ scheme: 'isfs', authority: authority.split(":")[0], path: `/_vscode/${namespace}/UnitTestRoot/${username}`, query: "csp&ns=%SYS" });
+      const testRoot = vscode.Uri.from({ scheme: 'isfs', authority, path: `/_vscode/${namespace}/UnitTestRoot/${username}`, query: "csp&ns=%SYS" });
       try {
         // Limitation of the Atelier API means this can only delete the files, not the folders
         // but zombie folders shouldn't cause problems.
