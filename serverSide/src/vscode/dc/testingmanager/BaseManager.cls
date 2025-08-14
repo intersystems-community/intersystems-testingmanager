@@ -2,11 +2,11 @@
 Class vscode.dc.testingmanager.BaseManager [ Abstract ]
 {
 
-Property bmMethodMap As %String [ MultiDimensional, Private ];
+Property tmMethodMap As %String [ MultiDimensional, Private ];
 
-Method bmMapOneFile(file As %String) [ Private ]
+Method tmMapOneFile(file As %String) [ Private ]
 {
-  Kill ..bmMethodMap(file)
+  Kill ..tmMethodMap(file)
   Set tFlags=+..UserParam # 2 * 16 // Bit 0 f UserParam indicates we must get udl-multiline format (since Atelier API v4)
   Set tSC=##class(%Atelier.v1.Utils.TextServices).GetTextAsArray(file,tFlags,.tTextArray)
   //TODO: use the text array to create a tag-to-linenumber map
@@ -19,10 +19,10 @@ Method bmMapOneFile(file As %String) [ Private ]
     While ("{"'[$Get(tTextArray(lineNumber+1))) {
       Set lineNumber=lineNumber+1
     }
-    Set ..bmMethodMap(file,tag)=lineNumber
+    Set ..tmMethodMap(file,tag)=lineNumber
   }
   // Note linecount as an indicator we've indexed this file, even if we found no methods
-  Set ..bmMethodMap(file)=+$Get(tTextArray(0))
+  Set ..tmMethodMap(file)=+$Get(tTextArray(0))
 }
 
 /// Copied from %UnitTest.Manager and enhanced to append location information
@@ -43,9 +43,9 @@ Method LogAssert(success, action, description, extra, location)
     Set tag=$Piece(tagOffset,"+",1)
     If (tag'="") {
       // Create a tag-to-linenumber map for file if we don't have one already
-      If '$Data(..bmMethodMap(file)) Do ..bmMapOneFile(file)
+      If '$Data(..tmMethodMap(file)) Do ..tmMapOneFile(file)
       // Use it to compute what to add to the offset to get an absolute line number
-      Set tagLineNumber=$Get(..bmMethodMap(file,tag))
+      Set tagLineNumber=$Get(..tmMethodMap(file,tag))
       Set location="+"_(offset+tagLineNumber)_"^"_file
     }
   }
