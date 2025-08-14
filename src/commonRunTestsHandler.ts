@@ -254,6 +254,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       const isClientSideMode = controller.id === `${extensionId}-Local`;
       const isDebug = request.profile?.kind === vscode.TestRunProfileKind.Debug;
       const runQualifiers = !isClientSideMode ? "/noload/nodelete" : isDebug ? "/noload" : "";
+      let userParam = vscode.workspace.getConfiguration('objectscript', oneUri).get<boolean>('multilineMethodArgs', false) ? 1 : 0;
       const runIndex = allTestRuns.push(run) - 1;
       runIndices.push(runIndex);
 
@@ -268,7 +269,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         }
       }
 
-      let program = `##class(%UnitTest.Manager).RunTest("${testSpec}","${runQualifiers}")`;
+      let program = `##class(vscode.dc.testingmanager.StandardManager).RunTest("${testSpec}","${runQualifiers}",${userParam})`;
       if (coverageRequest) {
         program = `##class(${UTIL_CLASSNAME}).${SQL_FN_RUNTESTPROXY}("${testSpec}","${runQualifiers}",2)`;
         request.profile.loadDetailedCoverage = async (_testRun, fileCoverage, _token) => {
@@ -278,6 +279,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
           return fileCoverage instanceof OurFileCoverage ? fileCoverage.loadDetailedCoverage(fromTestItem) : [];
         };
       }
+
       const configuration = {
         type: "objectscript",
         request: "launch",

@@ -37,7 +37,7 @@ export class OurFileCoverage extends vscode.FileCoverage {
 
     // When ObjectScript extension spreads method arguments over multiple lines, we need to compute offsets
     const mapOffsets: Map<string, number> = new Map();
-    if (vscode.workspace.getConfiguration('objectscript', this.uri).get('multilineMethodArgs', false)) {
+    if (vscode.workspace.getConfiguration('objectscript', this.uri).get<boolean>('multilineMethodArgs', false)) {
       const response = await makeRESTRequest(
         "POST",
         serverSpec,

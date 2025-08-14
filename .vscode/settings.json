@@ -1,0 +1,20 @@
+{
+  "objectscript.export": {
+    "folder": "serverSide\\src",
+    "addCategory": false,
+    "map": {},
+    "atelier": true,
+    "generated": false,
+    "filter": "",
+    "exactFilter": "",
+    "category": "*",
+    "maxConcurrentConnections": 0,
+    "mapped": false
+  },
+  "objectscript.conn": {
+    "active": true,
+    "server": "docker-52774",
+    "ns": "USER",
+    "username": "_SYSTEM"
+  },
+}

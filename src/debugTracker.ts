@@ -106,7 +106,11 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
                 break;
 
               case 'failed':
-                this.run.failed(this.methodTest, this.failureMessages.length > 0 ? this.failureMessages : { message: 'Failed with no messages' }, this.testDuration);
+                if (this.failureMessages.length > 0) {
+                  this.run.failed(this.methodTest, this.failureMessages, this.testDuration);
+                } else {
+                  this.run.failed(this.methodTest, { message: 'Failed with no messages' }, this.testDuration);
+                }
                 break;
 
               default:
@@ -129,19 +133,25 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
           //const message = assertPassedMatch[2];
           //console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName ${macroName}, outcome 'passed', message=${message}`);
         } else {
-          const assertFailedMatch = line.match(/^(Assert\w+):(.*) \(failed\)  <<====/);
+          const assertFailedMatch = line.match(/^(Assert\w+):(.*) \(failed\)@\+(\d+)\^(.*)  <<====/);
           if (assertFailedMatch) {
             //const macroName = assertFailedMatch[1];
-            const failedMessage = assertFailedMatch[2];
-            //console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName ${macroName}, outcome 'failed', message=${message}`);
-            this.failureMessages.push({ message: failedMessage });
+            const message = assertFailedMatch[2];
+            const offset = Number(assertFailedMatch[3]);
+            const location = this.methodTest?.uri && this.methodTest.range
+              ? new vscode.Location(this.methodTest.uri, new vscode.Position(offset, 0))
+              : undefined;
+            this.failureMessages.push({ message, location });
           } else {
-            const assertSkippedMatch = line.match(/^        (Test\w+):(.*) \(skipped\)$/);
+            const assertSkippedMatch = line.match(/^        (Test\w+):(.*) \(skipped\)@\+(\d+)\^(.*)$/);
             if (assertSkippedMatch) {
               //const macroName = assertSkippedMatch[1];
               const message = assertSkippedMatch[2];
-              //console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName ${macroName}, outcome 'skipped', message=${message}`);
-              this.skippedMessages.push({ message: message });
+              const offset = Number(assertSkippedMatch[3]);
+              const location = this.methodTest?.uri && this.methodTest.range
+                ? new vscode.Location(this.methodTest.uri, new vscode.Position(offset, 0))
+                : undefined;
+              this.skippedMessages.push({ message, location });
             } else {
               const logMessageMatch = line.match(/^        LogMessage:(.*)$/);
               if (logMessageMatch) {
@@ -150,6 +160,13 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
                 const duration = message.match(/^Duration of execution: (\d*\.\d+) sec.$/);
                 if (duration) {
                   this.testDuration = + duration[1] * 1000;
+                }
+              } else {
+                const logStateStatusMatch = line.match(/^LogStateStatus:(.*)$/);
+                if (logStateStatusMatch) {
+                  const message = logStateStatusMatch[1];
+                  //console.log(`Class ${this.className}, Test-method ${this.testMethodName}, macroName LogStateStatus, message=${message}`);
+                  this.failureMessages.push({ message });
                 }
               }
             }
