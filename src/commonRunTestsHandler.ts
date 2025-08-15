@@ -157,10 +157,13 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       );
 
       if (!responseCspapps?.data?.result?.content?.includes("/_vscode")) {
-        const reply = await vscode.window.showErrorMessage(`A '/_vscode' web application must be configured for the %SYS namespace of server '${serverSpec.name}'. The ${namespace} namespace also requires its ^UnitTestRoot global to point to the '${namespace}/UnitTestRoot' subfolder of that web application's path.`, { modal: true }, 'Instructions');
-        if (reply === 'Instructions') {
+        const reply = await vscode.window.showErrorMessage(`A '/_vscode' web application must be configured for the %SYS namespace of server '${serverSpec.name}'. The ${namespace} namespace also requires its ^UnitTestRoot global to point to the '${namespace}/UnitTestRoot' subfolder of that web application's path.`, { modal: true }, 'Use IPM Package', 'Follow Manual Instructions');
+        if (reply === 'Follow Manual Instructions') {
           vscode.commands.executeCommand('vscode.open', 'https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=GVSCO_serverflow#GVSCO_serverflow_folderspec');
+        } else if (reply === 'Use IPM Package') {
+          vscode.commands.executeCommand('vscode.open', 'https://openexchange.intersystems.com/package/vscode-per-namespace-settings');
         }
+        run.end();
         return;
       }
 
