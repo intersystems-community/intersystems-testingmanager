@@ -1,3 +1,9 @@
+## 2.0.3 (dd-Mmm-yyyy)
+* Imporove positioning of assertion failure markers (#50)
+* Remove need to define helper SQL functions via DDL.
+* Promote use of `vscode-per-namespace-settings` package for webapp setup.
+* Update DC contest text in README.
+
 ## 2.0.2 (30-Jul-2025)
 * Fix coverage marking when `"objectscript.multilineMethodArgs": true` (#46)
 * Improve method range highlighting accessed from coverage tree (#48)

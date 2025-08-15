@@ -15,12 +15,12 @@ export let osAPI: any;
 export let smAPI: serverManager.ServerManagerAPI | undefined;
 
 export interface OurTestRun extends vscode.TestRun {
-  debugSession?: vscode.DebugSession
+  debugSession?: vscode.DebugSession;
 }
 
 export interface OurTestItem extends vscode.TestItem {
   ourUri?: vscode.Uri;
-  supportsCoverage?: boolean
+  supportsCoverage?: boolean;
 }
 
 export const allTestRuns: (OurTestRun | undefined)[] = [];

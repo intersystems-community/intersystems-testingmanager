@@ -5,7 +5,6 @@ import { relativeTestRoot } from './localTests';
 import logger from './logger';
 import { makeRESTRequest } from './makeRESTRequest';
 import { OurFileCoverage } from './ourFileCoverage';
-import { SQL_FN_RUNTESTPROXY, UTIL_CLASSNAME } from './utils';
 
 export async function commonRunTestsHandler(controller: vscode.TestController, resolveItemChildren: (item: vscode.TestItem) => Promise<void>, request: vscode.TestRunRequest, cancellation: vscode.CancellationToken) {
   logger.debug(`commonRunTestsHandler invoked by controller id=${controller.id}`);
@@ -158,10 +157,13 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       );
 
       if (!responseCspapps?.data?.result?.content?.includes("/_vscode")) {
-        const reply = await vscode.window.showErrorMessage(`A '/_vscode' web application must be configured for the %SYS namespace of server '${serverSpec.name}'. The ${namespace} namespace also requires its ^UnitTestRoot global to point to the '${namespace}/UnitTestRoot' subfolder of that web application's path.`, { modal: true }, 'Instructions');
-        if (reply === 'Instructions') {
+        const reply = await vscode.window.showErrorMessage(`A '/_vscode' web application must be configured for the %SYS namespace of server '${serverSpec.name}'. The ${namespace} namespace also requires its ^UnitTestRoot global to point to the '${namespace}/UnitTestRoot' subfolder of that web application's path.`, { modal: true }, 'Use IPM Package', 'Follow Manual Instructions');
+        if (reply === 'Follow Manual Instructions') {
           vscode.commands.executeCommand('vscode.open', 'https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=GVSCO_serverflow#GVSCO_serverflow_folderspec');
+        } else if (reply === 'Use IPM Package') {
+          vscode.commands.executeCommand('vscode.open', 'https://openexchange.intersystems.com/package/vscode-per-namespace-settings');
         }
+        run.end();
         return;
       }
 
@@ -170,9 +172,40 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       // When client-side mode is using 'objectscript.conn.docker-compose the first piece of 'authority' is blank,
       if (authority.startsWith(":")) {
         authority = folder?.name || "";
+      } else {
+        authority = authority.split(":")[0];
       }
+
+      // Load our support classes if they are not already there and the correct version.
+      const thisExtension = vscode.extensions.getExtension(extensionId);
+      if (!thisExtension) {
+        // Never happens, but needed to satisfy typechecking below
+        return;
+      }
+      const extensionUri = thisExtension.extensionUri;
+      const supportClassesDir = extensionUri.with({ path: extensionUri.path + '/serverSide/src' + '/vscode/dc/testingmanager'});
+      const expectedVersion = thisExtension.packageJSON.version;
+      const expectedCount = (await vscode.workspace.fs.readDirectory(supportClassesDir)).length;
+      const response = await makeRESTRequest(
+        "POST",
+        serverSpec,
+        { apiVersion: 1, namespace, path: "/action/query" },
+        {
+          query: `SELECT parent, _Default FROM %Dictionary.CompiledParameter WHERE Name='VERSION' AND parent %STARTSWITH 'vscode.dc.testingmanager.' AND _Default=?`,
+          parameters: [expectedVersion],
+        },
+      );
+      if (response?.status !== 200 || response?.data?.result?.content?.length !== expectedCount) {
+        const destinationDir = vscode.Uri.from({ scheme: 'isfs', authority: `${authority}:${namespace}`, path: '/vscode/dc/testingmanager'})
+        try {
+          await vscode.workspace.fs.copy(supportClassesDir, destinationDir, { overwrite: true });
+        } catch (error) {
+          await vscode.window.showErrorMessage(`Failed to copy support classes from ${supportClassesDir.path.slice(1)} to ${destinationDir.toString()}\n\n${JSON.stringify(error)}`, {modal: true});
+        }
+      }
+
       // No longer rely on ISFS redirection of /.vscode because since ObjectScript v3.0 it no longer works for client-only workspaces.
-      const testRoot = vscode.Uri.from({ scheme: 'isfs', authority: authority.split(":")[0], path: `/_vscode/${namespace}/UnitTestRoot/${username}`, query: "csp&ns=%SYS" });
+      const testRoot = vscode.Uri.from({ scheme: 'isfs', authority, path: `/_vscode/${namespace}/UnitTestRoot/${username}`, query: "csp&ns=%SYS" });
       try {
         // Limitation of the Atelier API means this can only delete the files, not the folders
         // but zombie folders shouldn't cause problems.
@@ -254,6 +287,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       const isClientSideMode = controller.id === `${extensionId}-Local`;
       const isDebug = request.profile?.kind === vscode.TestRunProfileKind.Debug;
       const runQualifiers = !isClientSideMode ? "/noload/nodelete" : isDebug ? "/noload" : "";
+      const userParam = vscode.workspace.getConfiguration('objectscript', oneUri).get<boolean>('multilineMethodArgs', false) ? 1 : 0;
       const runIndex = allTestRuns.push(run) - 1;
       runIndices.push(runIndex);
 
@@ -268,9 +302,9 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         }
       }
 
-      let program = `##class(%UnitTest.Manager).RunTest("${testSpec}","${runQualifiers}")`;
+      let program = `##class(vscode.dc.testingmanager.StandardManager).RunTest("${testSpec}","${runQualifiers}",${userParam})`;
       if (coverageRequest) {
-        program = `##class(${UTIL_CLASSNAME}).${SQL_FN_RUNTESTPROXY}("${testSpec}","${runQualifiers}",2)`;
+        program = `##class(vscode.dc.testingmanager.CoverageManager).RunTest("${testSpec}","${runQualifiers}",${userParam})`
         request.profile.loadDetailedCoverage = async (_testRun, fileCoverage, _token) => {
           return fileCoverage instanceof OurFileCoverage ? fileCoverage.loadDetailedCoverage() : [];
         };
@@ -278,6 +312,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
           return fileCoverage instanceof OurFileCoverage ? fileCoverage.loadDetailedCoverage(fromTestItem) : [];
         };
       }
+
       const configuration = {
         type: "objectscript",
         request: "launch",
