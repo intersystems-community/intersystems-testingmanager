@@ -2,7 +2,7 @@
 
 > **New in Version 2.0 - Test Coverage**
 > 
-> The v2.0 release has been entered into the [InterSystems Developer Tools Contest 2025](https://openexchange.intersystems.com/contest/42). Please support it with your vote between 28th July and 3rd August.
+> The v2.0 release was awarded first place in the [InterSystems Developer Tools Contest 2025](https://openexchange.intersystems.com/contest/42) in both voting categories, Experts and Community Members.
 
 This extension uses VS Code's [Testing API](https://code.visualstudio.com/api/extension-guides/testing) to discover, run and debug unit test classes built with the [%UnitTest testing framework](https://docs.intersystems.com/irislatest/csp/docbook/DocBook.UI.Page.cls?KEY=TUNT_WhatIsPercentUnitTest) of the InterSystems IRIS platforms, plus Cach&eacute;-based predecessors supporting the `/api/atelier` REST service.
 
