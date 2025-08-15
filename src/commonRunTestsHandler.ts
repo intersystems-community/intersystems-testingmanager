@@ -173,17 +173,32 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         authority = authority.split(":")[0];
       }
 
-      // Load our support classes
-      // TODO - as an optimization, check if they already exist and with the correct #VERSION parameter
-      try {
-        const extensionUri = vscode.extensions.getExtension(extensionId)?.extensionUri;
-        if (extensionUri) {
-          const sourceDir = extensionUri.with({ path: extensionUri.path + '/serverSide/src' + '/vscode/dc/testingmanager'});
-          const destinationDir = vscode.Uri.from({ scheme: 'isfs', authority: `${authority}:${namespace}`, path: '/vscode/dc/testingmanager'})
-          await vscode.workspace.fs.copy(sourceDir, destinationDir, { overwrite: true });
+      // Load our support classes if they are not already there and the correct version.
+      const thisExtension = vscode.extensions.getExtension(extensionId);
+      if (!thisExtension) {
+        // Never happens, but needed to satisfy typechecking below
+        return;
+      }
+      const extensionUri = thisExtension.extensionUri;
+      const supportClassesDir = extensionUri.with({ path: extensionUri.path + '/serverSide/src' + '/vscode/dc/testingmanager'});
+      const expectedVersion = thisExtension.packageJSON.version;
+      const expectedCount = (await vscode.workspace.fs.readDirectory(supportClassesDir)).length;
+      const response = await makeRESTRequest(
+        "POST",
+        serverSpec,
+        { apiVersion: 1, namespace, path: "/action/query" },
+        {
+          query: `SELECT parent, _Default FROM %Dictionary.CompiledParameter WHERE Name='VERSION' AND parent %STARTSWITH 'vscode.dc.testingmanager.' AND _Default=?`,
+          parameters: [expectedVersion],
+        },
+      );
+      if (response?.status !== 200 || response?.data?.result?.content?.length !== expectedCount) {
+        const destinationDir = vscode.Uri.from({ scheme: 'isfs', authority: `${authority}:${namespace}`, path: '/vscode/dc/testingmanager'})
+        try {
+          await vscode.workspace.fs.copy(supportClassesDir, destinationDir, { overwrite: true });
+        } catch (error) {
+          await vscode.window.showErrorMessage(`Failed to copy support classes from ${supportClassesDir.path.slice(1)} to ${destinationDir.toString()}\n\n${JSON.stringify(error)}`, {modal: true});
         }
-      } catch (error) {
-        console.log(error);
       }
 
       // No longer rely on ISFS redirection of /.vscode because since ObjectScript v3.0 it no longer works for client-only workspaces.

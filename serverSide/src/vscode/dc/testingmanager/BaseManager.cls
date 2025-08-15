@@ -1,7 +1,10 @@
 /// Helper superclass for the testing managers we use.
+/// Must collate ahead of its subclasses, so it is already available on the server
+/// when they are copied there by a directory copy.
 Class vscode.dc.testingmanager.BaseManager [ Abstract ]
 {
 
+/// Keep this in sync with the version property in package.json
 Parameter VERSION As STRING = "2.0.3";
 
 Property tmMethodMap As %String [ MultiDimensional, Private ];
