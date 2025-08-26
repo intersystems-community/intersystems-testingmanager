@@ -1,5 +1,5 @@
-## 2.0.3 (dd-Mmm-yyyy)
-* Imporove positioning of assertion failure markers (#50)
+## 2.0.3 (26-Aug-2025)
+* Improve positioning of assertion failure markers (#50)
 * Remove need to define helper SQL functions via DDL.
 * Promote use of `vscode-per-namespace-settings` package for webapp setup.
 * Update DC contest text in README.
