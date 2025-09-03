@@ -14,12 +14,13 @@ async function resolveItemChildren(item?: OurTestItem) {
         const namespace = parts[2];
         if (spec) {
             if (parts.length === 3) {
-                // Find all TestCase classes
+                // Find all TestCase classes in this namespace (not mapped in from elsewhere)
+                const includeMapped = 0;
                 const response = await makeRESTRequest(
                     "POST",
                     spec,
                     { apiVersion: 1, namespace, path: "/action/query" },
-                    { query: `CALL %Dictionary.ClassDefinition_SubclassOf('%UnitTest.TestCase', '${(namespace === "%SYS" ? "" : "@")}')` },
+                    { query: `SELECT tc.Name FROM %Dictionary.ClassDefinition_SubclassOf('%UnitTest.TestCase') tc, %Library.RoutineMgr_StudioOpenDialog('*.CLS',1,1,1,1,0,0,,0,${includeMapped}) sod WHERE CONCAT(tc.Name, '.cls') = sod.Name`},
                 );
                 if (response) {
                     for await (const element of response?.data?.result?.content) {
