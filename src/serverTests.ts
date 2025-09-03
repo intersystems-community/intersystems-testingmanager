@@ -29,7 +29,7 @@ async function resolveItemChildren(item?: OurTestItem) {
                             fullClassName,
                             vscode.Uri.from({
                                 scheme: item.uri?.scheme === "isfs" ? "isfs" : "isfs-readonly",
-                                authority: item.id.toLowerCase(),
+                                authority: parts.slice(1).join(":").toLowerCase(),
                                 path: "/" + fullClassName.replace(/\./g, "/") + ".cls",
                                 query: item.uri?.query
                             })
