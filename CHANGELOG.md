@@ -1,3 +1,7 @@
+## 2.0.4 (05-Sep-2025)
+* Fix subfolder of Server Tests spinning endlessly when expanding (#56)
+* Server-side mode: exclude mapped TestCase classes (#58)
+ 
 ## 2.0.3 (26-Aug-2025)
 * Improve positioning of assertion failure markers (#50)
 * Remove need to define helper SQL functions via DDL.
