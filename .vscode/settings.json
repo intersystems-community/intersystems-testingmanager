@@ -11,10 +11,4 @@
     "maxConcurrentConnections": 0,
     "mapped": false
   },
-  "objectscript.conn": {
-    "active": true,
-    "server": "docker-52774",
-    "ns": "USER",
-    "username": "_SYSTEM"
-  },
 }
