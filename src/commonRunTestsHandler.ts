@@ -204,13 +204,20 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
         }
       }
 
-      // Form the ISFS target folder uri and delete any existing content
+      // Form the ISFS target folder uri and delete any existing content.
+      // Use the username as part of the path to allow multiple users to run tests at the same time without stepping on each other's files,
+      // but avoid server filesystem pathname issues by base64 encoding a tricky username and prefixing with '@'.
       // Note that authority here is just server name, no :namespace
-      const testRoot = vscode.Uri.from({ scheme: 'isfs', authority, path: `/_vscode/${namespace}/UnitTestRoot/${username}`, query: "csp&ns=%SYS" });
+      const safeUsername = !username.match(/^[A-Za-z0-9.]*$/) ? '@' + Buffer.from(username).toString('base64') : username;
+      const testRoot = vscode.Uri.from({ scheme: 'isfs', authority, path: `/_vscode/${namespace}/UnitTestRoot/${safeUsername}`, query: "csp&ns=%SYS" });
       try {
         // Limitation of the Atelier API means this can only delete the files, not the folders
         // but zombie folders shouldn't cause problems.
         await vscode.workspace.fs.delete(testRoot, { recursive: true });
+        if (username !== safeUsername) {
+          // If we had to mangle the username to make a safe path, write the original username into a file so someone inspecting the server filesystem can tell which folder belongs to which user
+          await vscode.workspace.fs.writeFile(testRoot.with({ path: testRoot.path.concat('/_username.txt') }), new Uint8Array([...Buffer.from(username)]));
+        }
       } catch (error) {
         console.log(error);
       }
@@ -242,7 +249,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
           try {
             await vscode.workspace.fs.stat(coverageListUri);
             mapCoverageLists.set(coverageListUri.toString(), testRoot.path.concat(currentPath));
-          } catch (error) {
+          } catch (error: any) {
             if (error.code !== vscode.FileSystemError.FileNotFound().code) {
               console.log(`Error checking for ${coverageListUri.toString()}:`, error);
             }
@@ -295,11 +302,11 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       // Compute the testspec argument for %UnitTest.Manager.RunTest() call.
       // Typically it is a testsuite, the subfolder where we copied all the testclasses,
       // but if only a single method of a single class is being tested we will also specify testcase and testmethod.
-      let testSpec = username;
+      let testSpec = safeUsername;
       if (request.include?.length === 1) {
         const idParts = request.include[0].id.split(":");
         if (idParts.length === 5) {
-          testSpec = `${username}\\${idParts[3].split(".").slice(0, -1).join("\\")}:${idParts[3]}:${idParts[4]}`;
+          testSpec = `${safeUsername}\\${idParts[3].split(".").slice(0, -1).join("\\")}:${idParts[3]}:${idParts[4]}`;
         }
       }
 
@@ -317,7 +324,7 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       const configuration = {
         type: "objectscript",
         request: "launch",
-        name: `${controller.id.split("-").pop()}Tests:${serverSpec.name}:${namespace}:${username}`,
+        name: `${controller.id.split("-").pop()}Tests:${serverSpec.name}:${namespace}:${safeUsername}`,
         program,
 
         // Extra properties needed by our DebugAdapterTracker
