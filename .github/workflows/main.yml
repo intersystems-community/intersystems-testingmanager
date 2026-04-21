@@ -73,7 +73,10 @@ jobs:
         run: npm run lint
       - run: npm run compile
       - name: npm test
-        run: xvfb-run run test
+        if: runner.os == 'Linux'
+        run: xvfb-run npm test
+      - if: runner.os != 'Linux'
+        run: npm test
       - name: Build package
         if: runner.os == 'Linux'
         run: |
