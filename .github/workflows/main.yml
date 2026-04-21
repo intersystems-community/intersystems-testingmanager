@@ -31,7 +31,7 @@ jobs:
     outputs:
       taggedbranch: ${{ steps.find-branch.outputs.taggedbranch }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
       - name: Find which branch the release tag points at
         id: find-branch
@@ -64,9 +64,9 @@ jobs:
           echo $VERSION > meta.version
           echo $NAME > meta.name
       - name: Use Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
       - run: npm install
       - name: lint
         if: runner.os == 'Linux-NOSUCH'
@@ -80,12 +80,12 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           npx vsce package -o ${{ steps.set-version.outputs.name }}.vsix
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: (runner.os == 'Linux') && (github.event_name != 'release')
         with:
           name: ${{ steps.set-version.outputs.name }}.vsix
           path: ${{ steps.set-version.outputs.name }}.vsix
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: runner.os == 'Linux'
         with:
           name: meta
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: meta
           path: .
@@ -108,7 +108,7 @@ jobs:
           set -x
           echo "version=`cat meta.version`" >> $GITHUB_OUTPUT
           echo "name=`cat meta.name`" >> $GITHUB_OUTPUT
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: ${{ steps.set-version.outputs.name }}.vsix
       - name: Create Release
@@ -125,18 +125,18 @@ jobs:
     if: github.event_name == 'release' && needs.build.outputs.taggedbranch == 'main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: main
           token: ${{ secrets.TOKEN }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: meta
           path: .
       - name: Use Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
       - name: Prepare build
         id: set-version
         run: |
