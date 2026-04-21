@@ -1,3 +1,8 @@
+## 2.0.5 (21-Apr-2026)
+* Avoid risk of bad dirname when username is unusual (#67)
+* Document requirement for `coverage.list` file, and allow it at the top of `relativeTestRoot` (#61)
+* Update dependencies.
+
 ## 2.0.4 (05-Sep-2025)
 * Fix subfolder of Server Tests spinning endlessly when expanding (#56)
 * Server-side mode: exclude mapped TestCase classes (#58)
