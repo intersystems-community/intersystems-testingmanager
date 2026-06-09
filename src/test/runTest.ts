@@ -1,4 +1,5 @@
 import * as cp from "child_process";
+import * as os from "os";
 import * as path from "path";
 
 import {
@@ -32,11 +33,13 @@ async function main() {
     );
 
     // Run the extension test
+    const userDataDir = path.join(os.tmpdir(), "itm-vscode-test");
     await runTests({
       // Use the specified `code` executable
       vscodeExecutablePath,
       extensionDevelopmentPath,
-      extensionTestsPath
+      extensionTestsPath,
+      launchArgs: ["--user-data-dir", userDataDir]
     });
    } catch (err) {
     console.error("Failed to run tests", err);
