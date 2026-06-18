@@ -22,6 +22,12 @@ export interface OurTestRun extends vscode.TestRun {
 export interface OurTestItem extends vscode.TestItem {
   ourUri?: vscode.Uri;
   supportsCoverage?: boolean;
+  // Full class FQN parsed from the `Class …` line of the .cls file.
+  // Set on class-level items so the debug tracker can map outcome lines
+  // (which carry the real FQN written by %UnitTest.Manager) back to the
+  // test item even when the filesystem path under `relativeTestRoot`
+  // does not mirror the package hierarchy.
+  ourFqn?: string;
 }
 
 export const allTestRuns: (OurTestRun | undefined)[] = [];

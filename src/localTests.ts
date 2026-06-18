@@ -67,6 +67,12 @@ async function resolveItemChildren(item: OurTestItem) {
                                 //     break;
                                 // }
                                 item.range = new vscode.Range(new vscode.Position(index, 0), new vscode.Position(index + 1, 0))
+                                // Record the real class FQN so the debug tracker can map outcome lines
+                                // back to this item independently of the filesystem path.
+                                const classMatch = lineText.match(/^Class\s+([%\w\.]+)/);
+                                if (classMatch) {
+                                    item.ourFqn = classMatch[1];
+                                }
                             }
                             const match = lineText.match(/^Method Test(.+)\(/);
                             if (match) {
