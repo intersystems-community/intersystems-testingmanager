@@ -306,7 +306,14 @@ export async function commonRunTestsHandler(controller: vscode.TestController, r
       if (request.include?.length === 1) {
         const idParts = request.include[0].id.split(":");
         if (idParts.length === 5) {
-          testSpec = `${safeUsername}\\${idParts[3].split(".").slice(0, -1).join("\\")}:${idParts[3]}:${idParts[4]}`;
+          // The suite subpath mirrors where we copied the .cls file (filesystem-based, from idParts[3]).
+          // The testcase argument must be the real class FQN as compiled on the server — take it from
+          // the parent class item's ourFqn, falling back to the filesystem-derived id part when no FQN
+          // was parsed from the .cls file.
+          const classItem = request.include[0].parent as OurTestItem | undefined;
+          const classFqn = classItem?.ourFqn ?? idParts[3];
+          const suiteSubPath = idParts[3].split(".").slice(0, -1).join("\\");
+          testSpec = `${safeUsername}\\${suiteSubPath}:${classFqn}:${idParts[4]}`;
         }
       }
 

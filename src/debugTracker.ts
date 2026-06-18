@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { allTestRuns, loadedTestController, localTestController, OurTestRun } from './extension';
+import { allTestRuns, loadedTestController, localTestController, OurTestItem, OurTestRun } from './extension';
 import { refreshHistoryRootItem } from './historyExplorer';
 import { processCoverage } from './coverage';
 
@@ -15,6 +15,11 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
   private testMethodName?: string;
   private testDuration?: number;
   private methodTestMap: Map<string, vscode.TestItem>;
+  // Maps a class FQN (as written by %UnitTest.Manager in stdout) to the
+  // corresponding class-level test item. Populated from OurTestItem.ourFqn
+  // so the lookup works even when the filesystem path under
+  // `relativeTestRoot` does not mirror the package hierarchy.
+  private fqnToClassItem: Map<string, vscode.TestItem>;
   private methodTest?: vscode.TestItem;
   private failureMessages: vscode.TestMessage[] = [];
   private skippedMessages: vscode.TestMessage[] = [];
@@ -30,10 +35,15 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
     };
     this.testingIdBase = this.session.configuration.testingIdBase;
     this.methodTestMap = new Map<string, vscode.TestItem>();
+    this.fqnToClassItem = new Map<string, vscode.TestItem>();
 
     const addToMethodTestMap = (testItem?: vscode.TestItem) => {
       if (!testItem) {
         return;
+      }
+      const fqn = (testItem as OurTestItem).ourFqn;
+      if (fqn) {
+        this.fqnToClassItem.set(fqn, testItem);
       }
       if (testItem.children.size > 0) {
         testItem.children.forEach(addToMethodTestMap);
@@ -83,7 +93,17 @@ export class DebugTracker implements vscode.DebugAdapterTracker {
         const methodBegin = line.match(/^      Test([\dA-Za-z0-9]+).* begins \.\.\./);
         if (methodBegin) {
           this.testMethodName = methodBegin[1];
-          this.methodTest = this.methodTestMap.get(`${this.testingIdBase}:${this.className}:Test${this.testMethodName}`);
+          // Preferred lookup: locate the class by its real FQN (independent of
+          // filesystem path under `relativeTestRoot`), then take the method child.
+          const classItem = this.className ? this.fqnToClassItem.get(this.className) : undefined;
+          if (classItem) {
+            this.methodTest = classItem.children.get(`${classItem.id}:Test${this.testMethodName}`);
+          }
+          // Fallback for items predating ourFqn (and for the LoadedTests path,
+          // where class items are addressed by their flat id).
+          if (!this.methodTest) {
+            this.methodTest = this.methodTestMap.get(`${this.testingIdBase}:${this.className}:Test${this.testMethodName}`);
+          }
           this.failureMessages = [];
           if (this.methodTest) {
             this.run.started(this.methodTest)
