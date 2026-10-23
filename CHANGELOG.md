@@ -1,3 +1,6 @@
+## 2.0.6 (23-Oct-2026)
+* Update dependencies.
+
 ## 2.0.5 (21-Apr-2026)
 * Avoid risk of bad dirname when username is unusual (#67)
 * Document requirement for `coverage.list` file, and allow it at the top of `relativeTestRoot` (#61)
