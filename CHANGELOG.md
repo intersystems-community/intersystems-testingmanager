@@ -1,4 +1,5 @@
 ## 2.0.6 (23-Oct-2026)
+* Map test items by real class FQN, not filesystem path (#74) - thanks to @globalerp-mhess
 * Update dependencies.
 
 ## 2.0.5 (21-Apr-2026)
